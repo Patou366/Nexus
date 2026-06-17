@@ -7,6 +7,7 @@ import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { getServerCounters, updateCounter } from '../services/serverstatsService.js';
 import { setBirthday as dbSetBirthday } from '../utils/database.js';
 import { logger } from '../utils/logger.js';
+import { checkAndAnnounceMilestone } from '../services/milestoneService.js';
 
 export default {
   name: Events.GuildMemberAdd,
@@ -164,7 +165,17 @@ export default {
         } catch (error) {
             logger.debug('Error restoring birthday on member join:', error);
         }
-        
+
+        // Check for milestone announcements
+        try {
+            const milestoneResult = await checkAndAnnounceMilestone(member.client, guild, member, guild.memberCount);
+            if (milestoneResult.announced) {
+                logger.info(`Milestone ${milestoneResult.milestone} announced in ${guild.name}`);
+            }
+        } catch (error) {
+            logger.debug('Error checking milestones on member join:', error);
+        }
+
     } catch (error) {
         logger.error('Error in guildMemberAdd event:', error);
     }

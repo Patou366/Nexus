@@ -13,7 +13,7 @@ const BACK_BUTTON_ID = "help-back-to-main";
 const ALL_COMMANDS_ID = "help-all-commands";
 const PAGINATION_PREFIX = "help-page";
 const CATEGORY_SELECT_ID = "help-category-select";
-const FOOTER_TEXT = "Made with ❤️";
+const FOOTER_TEXT = "Made with ❤️ / Hecho con ❤️";
 const SUBCOMMAND_TYPE = 1;
 const SUBCOMMAND_GROUP_TYPE = 2;
 
@@ -160,10 +160,10 @@ async function createCategoryCommandsMenu(category, client) {
     }
 
     const embed = createEmbed({
-        title: `${icon} ${categoryName} Commands`,
+        title: `${icon} ${categoryName} Commands / Comandos`,
         description: categoryCommands.length > 0
-            ? `Click any command mention below to use it:`
-            : `No commands found in the **${categoryName}** category.`
+            ? `Click any command mention below to use it: / Haz clic en cualquier mencion de comando para usarlo:`
+            : `No commands found in the **${categoryName}** category. / No se encontraron comandos en la categoria **${categoryName}**.`
     });
 
     if (categoryCommands.length > 0) {
@@ -180,7 +180,7 @@ async function createCategoryCommandsMenu(category, client) {
         const maxLength = 1000;
         if (commandMentions.length <= maxLength) {
             embed.addFields({
-                name: "Commands",
+                name: "Commands / Comandos",
                 value: commandMentions,
                 inline: false,
             });
@@ -201,7 +201,7 @@ async function createCategoryCommandsMenu(category, client) {
 
             chunks.forEach((chunk, index) => {
                 embed.addFields({
-                    name: `Commands (Part ${index + 1})`,
+                    name: `Commands / Comandos (Part ${index + 1})`,
                     value: chunk,
                     inline: false,
                 });
@@ -214,7 +214,7 @@ async function createCategoryCommandsMenu(category, client) {
 
     const backButton = createButton(
         BACK_BUTTON_ID,
-        "Back",
+        "Back / Atras",
         "primary",
         "⬅️",
         false,
@@ -299,8 +299,8 @@ export async function createAllCommandsMenu(page = 1, client) {
     const pageCommands = allCommands.slice(startIndex, endIndex);
 
     const embed = createEmbed({
-        title: "📋 All Commands",
-        description: `(${allCommands.length} total commands, including subcommands)`
+        title: "📋 All Commands / Todos los Comandos",
+        description: `(${allCommands.length} total commands, including subcommands / comandos totales, incluyendo subcomandos)`
     });
 
     embed.setFooter({ text: FOOTER_TEXT });
@@ -326,7 +326,7 @@ export async function createAllCommandsMenu(page = 1, client) {
             if (!chunk) continue;
 
             embed.addFields({
-                name: i === 0 ? `Commands (Page ${page})` : "Commands (cont.)",
+                name: i === 0 ? `Commands / Comandos (Page ${page})` : "Commands (cont.) / Comandos (cont.)",
                 value: chunk,
                 inline: columnCount > 1,
             });
@@ -346,7 +346,7 @@ export async function createAllCommandsMenu(page = 1, client) {
 
     const backButton = createButton(
         BACK_BUTTON_ID,
-        "Back",
+        "Back / Atras",
         "primary",
         "⬅️",
         false,
@@ -400,7 +400,7 @@ export const helpCategorySelectMenu = {
             logger.error('Error in help category select menu handler:', error);
             if (!interaction.replied && !interaction.deferred) {
                 await interaction.reply({
-                    content: 'An error occurred while loading help categories.',
+                    content: 'An error occurred while loading help categories. / Ocurrio un error al cargar las categorias de ayuda.',
                     flags: MessageFlags.Ephemeral,
                 });
             }
