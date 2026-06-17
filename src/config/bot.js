@@ -26,8 +26,8 @@ export const botConfig = {
       {
         // Text users will see (example: "Playing /help | Titan Bot").
         // Activity type 3 = Watching - Discord will prepend "Watching" automatically
-        name: "my fellow users / Observando a mis compañeros usuarios",
-        type: 3,
+        name: "My fellow users!",
+        type: 2,
       },
     ],
   },
