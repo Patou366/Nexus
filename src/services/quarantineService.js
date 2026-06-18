@@ -5,7 +5,6 @@ import { logger } from '../utils/logger.js';
 import { getFromDb, setInDb } from '../utils/database.js';
 import { getColor } from '../config/bot.js';
 import { sanitizeMarkdown } from '../utils/sanitization.js';
-import { ModerationService } from './moderationService.js';
 
 const QUARANTINE_DB_PREFIX = 'quarantine';
 
@@ -41,7 +40,16 @@ const STRINGS = {
   statusResolved: t('Resolved', 'Resuelto'),
   statusBanned: t('Banned', 'Baneado'),
   errorMissingRole: t('Quarantine role not configured.', 'Rol de cuarentena no configurado.'),
-  errorMissingChannel: t('Quarantine channel not found.', 'Canal de cuarentena no encontrado.')
+  errorMissingChannel: t('Quarantine channel not found.', 'Canal de cuarentena no encontrado.'),
+
+  tripReasons: {
+    mass_join: t('Mass Joins', 'Ingresos Masivos'),
+    suspicious_accounts: t('Accounts < 4 Days / Default Avatar', 'Cuentas < 4 Días / Avatar por Defecto'),
+    name_sequential: t('Sequential Name Pattern', 'Patrón de Nombres Secuencial'),
+    name_similarity: t('Similar Name Cluster', 'Clúster de Nombres Similares'),
+    cross_channel_spam: t('Cross-Channel Spam', 'Spam Multi-Canal'),
+    burned_invite: t('Burned Invite', 'Invitación Comprometida')
+  }
 };
 
 function formatBilingual(strings, placeholders = {}) {
@@ -69,7 +77,33 @@ function formatBilingualEmbed({ title, description, color, fields = [], footer, 
   return embed;
 }
 
+function formatTripReasons(tripReasons) {
+  if (!Array.isArray(tripReasons) || tripReasons.length === 0) return 'Mass Joins / Ingresos Masivos';
+  return tripReasons.map(r => {
+    const s = STRINGS.tripReasons[r];
+    return s ? `${s.en} / ${s.es}` : r;
+  }).join(', ');
+}
+
 export class QuarantineService {
+  /**
+   * Delete or revoke an invite link
+   */
+  static async deleteInvite(guild, inviteCode) {
+    try {
+      const invite = await guild.invites.fetch(inviteCode).catch(() => null);
+      if (invite) {
+        await invite.delete('Raid shield — burned invite link detected');
+        logger.info(`Burned invite deleted: ${inviteCode} in guild ${guild.id}`);
+        return { success: true, code: inviteCode };
+      }
+      return { success: false, reason: 'invite_not_found' };
+    } catch (error) {
+      logger.warn(`Failed to delete invite ${inviteCode}:`, error.message);
+      return { success: false, reason: error.message };
+    }
+  }
+
   /**
    * Trigger a quarantine event
    */
@@ -103,6 +137,10 @@ export class QuarantineService {
 
       const processedSuspects = [];
       for (const suspect of suspects) {
+        if (!suspect || !suspect.roles) {
+          logger.warn(`Skipping invalid suspect in quarantine ${quarantineId}`);
+          continue;
+        }
         const previousRoles = suspect.roles.cache
           .filter(r => r.id !== guild.id && r.id !== config.quarantineRoleId)
           .map(r => r.id);
@@ -121,6 +159,16 @@ export class QuarantineService {
           // Move to quarantine channel if it's a voice channel
           if (quarantineChannel && quarantineChannel.isVoiceBased() && suspect.voice?.channel) {
             await suspect.voice.setChannel(quarantineChannel, 'Raid shield quarantine').catch(() => null);
+          }
+
+          // Lock to quarantine channel only (strip all other roles except quarantine)
+          if (quarantineRole && config.quarantineRoleId) {
+            const rolesToRemove = suspect.roles.cache.filter(
+              r => r.id !== guild.id && r.id !== config.quarantineRoleId
+            );
+            for (const [, role] of rolesToRemove) {
+              await suspect.roles.remove(role, 'Raid shield — lock to quarantine').catch(() => null);
+            }
           }
 
           processedSuspects.push({
@@ -173,14 +221,41 @@ export class QuarantineService {
       const channel = guild.channels.cache.get(notificationChannelId);
       if (!channel?.isTextBased()) return;
 
-      const reasonText = quarantineData.reason === 'raid_join_burst'
-        ? formatBilingual(STRINGS.joinBurstReason, {
-            count: quarantineData.metadata?.joinCount || quarantineData.suspects.length,
-            seconds: Math.round((quarantineData.metadata?.windowMs || 30000) / 1000)
-          })
-        : formatBilingual(STRINGS.spamReason, {
-            count: quarantineData.metadata?.channelCount || 0
-          });
+      const meta = quarantineData.metadata || {};
+      const tripReasons = meta.tripReasons || ['mass_join'];
+      const tripReasonText = formatTripReasons(tripReasons);
+      const dominantInvite = meta.dominantInvite || null;
+      const inviteDominance = meta.inviteDominance || 0;
+      const inviteBurned = dominantInvite && inviteDominance >= 0.80;
+
+      let reasonText;
+      if (quarantineData.reason === 'raid_join_burst') {
+        reasonText = formatBilingual(STRINGS.joinBurstReason, {
+          count: meta.joinCount || quarantineData.suspects.length,
+          seconds: Math.round((meta.windowMs || 30000) / 1000)
+        });
+      } else if (quarantineData.reason === 'raid_suspicious_subset') {
+        reasonText = formatBilingual(
+          t('Suspicious Subset: {count} flagged accounts (< 4 days or default avatar)', '{count} cuentas marcadas sospechosas (< 4 días o avatar por defecto)'),
+          { count: meta.flaggedCount || quarantineData.suspects.length }
+        );
+      } else if (quarantineData.reason === 'raid_name_pattern') {
+        reasonText = formatBilingual(
+          t('Name Pattern: sequential names like {pattern}', 'Patrón de Nombres: nombres secuenciales como {pattern}'),
+          { pattern: meta.pattern || 'Unknown' }
+        );
+      } else if (quarantineData.reason === 'raid_name_similarity') {
+        reasonText = formatBilingual(
+          t('Name Similarity: {count} accounts with similar usernames', 'Similitud de Nombres: {count} cuentas con nombres similares'),
+          { count: quarantineData.suspects.length }
+        );
+      } else if (quarantineData.reason === 'raid_cross_channel_spam') {
+        reasonText = formatBilingual(STRINGS.spamReason, {
+          count: meta.channelCount || 0
+        });
+      } else {
+        reasonText = formatBilingual(t('Unknown', 'Desconocido'), {});
+      }
 
       const suspectList = quarantineData.suspects
         .map((s, i) => `${i + 1}. <@${s.userId}> \`${sanitizeMarkdown(s.username)}\``)
@@ -188,6 +263,11 @@ export class QuarantineService {
 
       const fields = [
         formatBilingualField(STRINGS.reason, reasonText, false),
+        formatBilingualField(
+          t('Trip Reasons', 'Razones de Disparo'),
+          tripReasonText,
+          false
+        ),
         formatBilingualField(STRINGS.suspects, suspectList || 'N/A', false),
         formatBilingualField(STRINGS.detectedAt, `<t:${Math.floor(Date.now() / 1000)}:F>`, true),
         formatBilingualField(STRINGS.statusQuarantined, '🔒', true)
@@ -198,6 +278,20 @@ export class QuarantineService {
         fields.push(formatBilingualField(
           t('Channels', 'Canales'),
           channelList,
+          false
+        ));
+      }
+
+      if (inviteBurned) {
+        fields.push(formatBilingualField(
+          t('Burned Invite', 'Invitación Comprometida'),
+          `discord.gg/\`${dominantInvite}\` (${Math.round(inviteDominance * 100)}% dominance) — **DELETED** / **ELIMINADA**`,
+          false
+        ));
+      } else if (dominantInvite) {
+        fields.push(formatBilingualField(
+          t('Dominant Invite', 'Invitación Dominante'),
+          `discord.gg/\`${dominantInvite}\` (${Math.round(inviteDominance * 100)}%)`,
           false
         ));
       }
