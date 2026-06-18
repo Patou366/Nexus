@@ -8,6 +8,7 @@ import { logger } from '../utils/logger.js';
 import { getLevelingConfig, getUserLevelData } from '../services/leveling.js';
 import { addXp } from '../services/xpSystem.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
+import { RaidDetectionService } from '../services/raidDetectionService.js';
 
 const MESSAGE_XP_RATE_LIMIT_ATTEMPTS = 12;
 const MESSAGE_XP_RATE_LIMIT_WINDOW_MS = 10000;
@@ -16,10 +17,16 @@ export default {
   name: Events.MessageCreate,
   async execute(message, client) {
     try {
-      
+
       if (message.author.bot || !message.guild) return;
 
-      await handleLeveling(message, client);
+      // Run raid detection and leveling concurrently
+      await Promise.all([
+        handleLeveling(message, client),
+        RaidDetectionService.processMessage(message, client).catch(err =>
+          logger.debug('Error in raid detection message processing:', err)
+        )
+      ]);
     } catch (error) {
       logger.error('Error in messageCreate event:', error);
     }

@@ -8,6 +8,7 @@ import { getServerCounters, updateCounter } from '../services/serverstatsService
 import { setBirthday as dbSetBirthday } from '../utils/database.js';
 import { logger } from '../utils/logger.js';
 import { checkAndAnnounceMilestone } from '../services/milestoneService.js';
+import { RaidDetectionService } from '../services/raidDetectionService.js';
 
 export default {
   name: Events.GuildMemberAdd,
@@ -174,6 +175,13 @@ export default {
             }
         } catch (error) {
             logger.debug('Error checking milestones on member join:', error);
+        }
+
+        // Raid detection — run after all onboarding so roles are stable
+        try {
+            await RaidDetectionService.processMemberJoin(member, member.client);
+        } catch (error) {
+            logger.debug('Error in raid detection for member join:', error);
         }
 
     } catch (error) {
