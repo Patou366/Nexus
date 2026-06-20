@@ -94,6 +94,7 @@ export async function saveServerSnapshot(guildId, snapshot) {
         saveId,
         createdAt: now,
         channelCount: snapshot.categories.reduce((acc, cat) => acc + cat.channels.length, 0),
+        roleCount: snapshot.roles ? snapshot.roles.length : 0,
         creatorId: snapshot.creatorId
     };
 
@@ -218,13 +219,48 @@ export function captureServerLayout(guild, creatorId) {
         categories.push(uncategorizedCategory);
     }
 
+    // Capture server roles
+    const roles = captureRoles(guild);
+
     return {
         guildId: guild.id,
         guildName: guild.name,
         creatorId,
         createdAt: Date.now(),
-        categories
+        categories,
+        roles
     };
+}
+
+/**
+ * Capture all server roles with their permissions and settings
+ * @param {Object} guild - The Discord guild
+ * @returns {Array} Array of role data
+ */
+function captureRoles(guild) {
+    const roles = [];
+
+    // Sort roles by position (highest first) - skip @everyone (position 0, id === guild.id)
+    const sortedRoles = guild.roles.cache
+        .filter(role => role.id !== guild.id)
+        .sort((a, b) => b.position - a.position);
+
+    for (const role of sortedRoles.values()) {
+        roles.push({
+            id: role.id,
+            name: role.name,
+            color: role.color,
+            hoist: role.hoist,
+            position: role.position,
+            permissions: role.permissions.bitfield.toString(),
+            mentionable: role.mentionable,
+            managed: role.managed,
+            icon: role.icon || null,
+            unicodeEmoji: role.unicodeEmoji || null
+        });
+    }
+
+    return roles;
 }
 
 /**
@@ -248,6 +284,67 @@ function capturePermissionOverwrites(channel) {
 }
 
 /**
+ * Restore missing roles from a snapshot
+ * @param {Object} guild - The Discord guild
+ * @param {Array} rolesData - Array of role data from the snapshot
+ * @returns {Promise<Object>} Results with rolesCreated count, roleMapping, and errors
+ */
+export async function restoreRolesFromSnapshot(guild, rolesData) {
+    const results = {
+        rolesCreated: 0,
+        roleMapping: {},
+        errors: []
+    };
+
+    if (!rolesData || rolesData.length === 0) {
+        return results;
+    }
+
+    // Process roles from lowest position to highest so positions are correct
+    const sortedRoles = [...rolesData]
+        .filter(r => !r.managed) // Skip managed roles (bot roles, integrations)
+        .sort((a, b) => a.position - b.position);
+
+    for (const roleData of sortedRoles) {
+        // Check if role already exists (by ID or by name)
+        let existingRole = guild.roles.cache.get(roleData.id);
+        if (existingRole) {
+            results.roleMapping[roleData.id] = existingRole.id;
+            continue;
+        }
+
+        // Try to find by exact name
+        existingRole = guild.roles.cache.find(
+            r => r.name === roleData.name && r.id !== guild.id
+        );
+        if (existingRole) {
+            results.roleMapping[roleData.id] = existingRole.id;
+            continue;
+        }
+
+        // Create the role
+        try {
+            const newRole = await guild.roles.create({
+                name: roleData.name,
+                color: roleData.color,
+                hoist: roleData.hoist,
+                permissions: BigInt(roleData.permissions),
+                mentionable: roleData.mentionable,
+                reason: 'Server backup restoration / Restauracion de copia de seguridad'
+            });
+
+            results.roleMapping[roleData.id] = newRole.id;
+            results.rolesCreated++;
+            logger.info(`Created role: ${roleData.name}`);
+        } catch (error) {
+            results.errors.push(`Failed to create role ${roleData.name}: ${error.message}`);
+        }
+    }
+
+    return results;
+}
+
+/**
  * Restore missing channels from a snapshot
  * @param {Object} guild - The Discord guild
  * @param {Object} snapshot - The snapshot data
@@ -256,10 +353,20 @@ function capturePermissionOverwrites(channel) {
  */
 export async function restoreServerFromSnapshot(guild, snapshot, roleMapping = {}) {
     const results = {
+        rolesCreated: 0,
         categoriesCreated: 0,
         channelsCreated: 0,
         errors: []
     };
+
+    // Restore roles first (channels need role IDs for permission overwrites)
+    if (snapshot.roles && snapshot.roles.length > 0) {
+        const roleResults = await restoreRolesFromSnapshot(guild, snapshot.roles);
+        results.rolesCreated = roleResults.rolesCreated;
+        results.errors.push(...roleResults.errors);
+        // Merge role mappings
+        roleMapping = { ...roleMapping, ...roleResults.roleMapping };
+    }
 
     // Build a map of current channels by name for quick lookup
     const currentChannels = new Map();
