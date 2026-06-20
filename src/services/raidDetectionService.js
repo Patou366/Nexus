@@ -22,6 +22,7 @@ const INVITE_DOMINANCE_THRESHOLD = 0.80;  // 80% same invite
 
 const CHANNEL_DELETE_WINDOW_MS = 5000;    // 5 seconds
 const CHANNEL_DELETE_THRESHOLD = 4;       // 4 channels deleted -> kick
+const CHANNEL_DELETE_PRUNE_INTERVAL_MS = 60000; // prune stale entries every 60s
 
 const DEFAULT_AVATAR_URL = 'https://cdn.discordapp.com/embed/avatars/';
 
@@ -32,11 +33,33 @@ const guildInviteCache = new Map();
 const guildNamePatternLock = new Map();
 const guildChannelDeleteWindows = new Map();
 
+let lastChannelDeletePrune = Date.now();
+
 function getChannelDeleteWindow(guildId) {
   if (!guildChannelDeleteWindows.has(guildId)) {
     guildChannelDeleteWindows.set(guildId, new Map());
   }
   return guildChannelDeleteWindows.get(guildId);
+}
+
+function pruneChannelDeleteWindows() {
+  const now = Date.now();
+  if (now - lastChannelDeletePrune < CHANNEL_DELETE_PRUNE_INTERVAL_MS) return;
+  lastChannelDeletePrune = now;
+
+  for (const [guildId, userMap] of guildChannelDeleteWindows.entries()) {
+    for (const [userId, timestamps] of userMap.entries()) {
+      const active = timestamps.filter(ts => now - ts < CHANNEL_DELETE_WINDOW_MS);
+      if (active.length === 0) {
+        userMap.delete(userId);
+      } else {
+        userMap.set(userId, active);
+      }
+    }
+    if (userMap.size === 0) {
+      guildChannelDeleteWindows.delete(guildId);
+    }
+  }
 }
 
 function getGuildJoinWindow(guildId) {
@@ -563,6 +586,8 @@ export class RaidDetectionService {
    */
   static async processChannelDelete(channel, client) {
     try {
+      pruneChannelDeleteWindows();
+
       const guild = channel.guild;
       if (!guild) return;
 
@@ -584,8 +609,7 @@ export class RaidDetectionService {
           type: AuditLogEvent.ChannelDelete,
           limit: 5
         });
-        const entry =
-          logs.entries.find(e => e.target?.id === channel.id) || logs.entries.first();
+        const entry = logs.entries.find(e => e.target?.id === channel.id);
 
         // Only trust recent entries to avoid matching a stale deletion
         if (entry && Date.now() - entry.createdTimestamp < CHANNEL_DELETE_WINDOW_MS + 2000) {
@@ -621,10 +645,12 @@ export class RaidDetectionService {
 
       let kicked = false;
       if (member && member.kickable) {
-        await member.kick(kickReason).catch(err => {
+        try {
+          await member.kick(kickReason);
+          kicked = true;
+        } catch (err) {
           logger.warn(`Anti-nuke: failed to kick ${executorId}:`, err.message);
-        });
-        kicked = true;
+        }
       } else {
         logger.warn(`Anti-nuke: member ${executorId} is not kickable in guild ${guildId}`);
       }
