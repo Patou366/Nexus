@@ -57,7 +57,7 @@ export default {
             });
         }
 
-    const { options, guild, client } = interaction;
+        const { options, guild, client } = interaction;
         const subcommand = options.getSubcommand();
 
         if (subcommand === 'add') {
@@ -79,7 +79,7 @@ export default {
             
             if (role.position >= guild.members.me.roles.highest.position) {
                 logger.warn(`[Autorole] User ${interaction.user.tag} tried to add role ${role.name} (${role.id}) higher than bot's highest role in ${guild.name}`);
-                return InteractionHelper.safeReply(interaction, {
+                return InteractionHelper.safeEditReply(interaction, {
                     embeds: [errorEmbed('Role Too High', "I can't assign roles that are higher than my highest role.")],
                     flags: MessageFlags.Ephemeral
                 });
@@ -89,7 +89,6 @@ export default {
                 const config = await getWelcomeConfig(client, guild.id);
                 const existingRoles = config.roleIds || [];
                 const currentRoleId = existingRoles[0] || null;
-                
                 
                 if (currentRoleId === role.id) {
                     logger.info(`[Autorole] User ${interaction.user.tag} tried to add duplicate role ${role.name} (${role.id}) in ${guild.name}`);
@@ -245,6 +244,3 @@ export default {
         }
     },
 };
-
-
-
