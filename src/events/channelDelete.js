@@ -6,11 +6,19 @@ import {
     saveTicketData
 } from '../utils/database.js';
 import { getServerCounters, saveServerCounters } from '../services/serverstatsService.js';
+import { RaidDetectionService } from '../services/raidDetectionService.js';
 import { logger } from '../utils/logger.js';
 
 export default {
     name: 'channelDelete',
     async execute(channel, client) {
+        // Anti-nuke: detect mass channel deletions for every channel type
+        if (channel.guild) {
+            await RaidDetectionService.processChannelDelete(channel, client).catch(err =>
+                logger.debug('Error in anti-nuke channel delete processing:', err)
+            );
+        }
+
         // Handle ticket text channel deletion
         if (channel.type === 0 && channel.guild) {
             try {

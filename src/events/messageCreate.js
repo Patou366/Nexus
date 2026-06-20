@@ -10,6 +10,7 @@ import { addXp } from '../services/xpSystem.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
 import { RaidDetectionService } from '../services/raidDetectionService.js';
 import { handleScamDetection } from '../services/scamDetectionService.js';
+import { getAfk, clearAfk } from '../services/afkService.js';
 
 const MESSAGE_XP_RATE_LIMIT_ATTEMPTS = 12;
 const MESSAGE_XP_RATE_LIMIT_WINDOW_MS = 10000;
@@ -21,7 +22,7 @@ export default {
 
       if (message.author.bot || !message.guild) return;
 
-      // Run raid detection, scam detection, and leveling concurrently
+      // Run raid detection, scam detection, AFK handling, and leveling concurrently
       await Promise.all([
         handleLeveling(message, client),
         RaidDetectionService.processMessage(message, client).catch(err =>
@@ -29,6 +30,9 @@ export default {
         ),
         handleScamDetection(message, client).catch(err =>
           logger.debug('Error in scam detection:', err)
+        ),
+        handleAfk(message, client).catch(err =>
+          logger.debug('Error in AFK handling:', err)
         )
       ]);
     } catch (error) {
@@ -122,6 +126,55 @@ async function handleLeveling(message, client) {
     }
   } catch (error) {
     logger.error('Error handling leveling for message:', error);
+  }
+}
+
+
+/**
+ * Handle AFK status:
+ *  - If the author was AFK, clear it and welcome them back.
+ *  - If the message mentions AFK users, reply with their AFK messages.
+ */
+async function handleAfk(message, client) {
+  try {
+    const guildId = message.guild.id;
+
+    // 1. The author returns from AFK
+    const authorAfk = await getAfk(guildId, message.author.id);
+    if (authorAfk) {
+      await clearAfk(guildId, message.author.id);
+      const backReply = await message.reply({
+        content: `👋 Welcome back ${message.author}, I removed your AFK status.`,
+        allowedMentions: { repliedUser: false }
+      }).catch(() => null);
+
+      if (backReply) {
+        setTimeout(() => backReply.delete().catch(() => {}), 10000);
+      }
+    }
+
+    // 2. Notify when AFK users are mentioned
+    if (message.mentions.users.size > 0) {
+      const lines = [];
+      for (const [, user] of message.mentions.users) {
+        if (user.bot || user.id === message.author.id) continue;
+
+        const afk = await getAfk(guildId, user.id);
+        if (afk) {
+          const since = afk.since ? ` (since <t:${Math.floor(afk.since / 1000)}:R>)` : '';
+          lines.push(`💤 **${user.username}** is AFK${since}: ${afk.message}`);
+        }
+      }
+
+      if (lines.length > 0) {
+        await message.reply({
+          content: lines.join('\n').slice(0, 2000),
+          allowedMentions: { parse: [] }
+        }).catch(() => null);
+      }
+    }
+  } catch (error) {
+    logger.debug('Error handling AFK for message:', error);
   }
 }
 
