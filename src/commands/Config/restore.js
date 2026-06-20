@@ -13,7 +13,7 @@ import { getColor } from '../../config/bot.js';
 export default {
     data: new SlashCommandBuilder()
         .setName("restore")
-        .setDescription("Restore missing channels from a saved snapshot / Restaurar canales faltantes desde una copia de seguridad")
+        .setDescription("Restore server channels from backup / Restaurar canales desde copia de seguridad")
         .addStringOption(option =>
             option
                 .setName('id')
