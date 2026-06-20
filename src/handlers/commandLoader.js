@@ -262,18 +262,21 @@ export async function registerCommands(client, clientId, guildId) {
             throw error;
         }
 
-        // ─── GUILD OVERRIDE (optional) ─────────────────────────────────────────
-        // If a guildId is configured, also register commands to that guild for
-        // instant updates during development (global commands can take up to 1 hour).
+        // ─── CLEAR GUILD COMMANDS (prevent duplicates) ─────────────────────────
+        // Commands are registered globally above, so they are already available
+        // in every guild. If a guildId also had guild-scoped copies of the same
+        // commands, Discord would show each command TWICE (once global, once
+        // guild). To prevent this duplication we clear the guild command set so
+        // only the global registration remains.
         // ───────────────────────────────────────────────────────────────────────
         if (guildId) {
             try {
                 const guild = await client.guilds.fetch(guildId);
-                logger.info(`Registering ${commandsToRegister.length} commands to guild ${guild.name} (${guild.id}) for instant updates...`);
-                await guild.commands.set(commandsToRegister);
-                logger.info(`Successfully registered ${commandsToRegister.length} guild commands to ${guild.name}`);
+                logger.info(`Clearing guild-scoped commands in ${guild.name} (${guild.id}) to avoid duplicates with global commands...`);
+                await guild.commands.set([]);
+                logger.info(`Cleared guild commands in ${guild.name}; only global commands remain`);
             } catch (error) {
-                logger.error(`Failed to register guild commands for ${guildId}:`, error);
+                logger.error(`Failed to clear guild commands for ${guildId}:`, error);
                 // Non-fatal: global commands are already registered
             }
         }
