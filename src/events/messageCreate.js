@@ -10,6 +10,7 @@ import { addXp } from '../services/xpSystem.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
 import { RaidDetectionService } from '../services/raidDetectionService.js';
 import { handleScamDetection } from '../services/scamDetectionService.js';
+import { AiModerationService } from '../services/aiModerationService.js';
 import { getAfk, clearAfk } from '../services/afkService.js';
 
 const MESSAGE_XP_RATE_LIMIT_ATTEMPTS = 12;
@@ -22,7 +23,7 @@ export default {
 
       if (message.author.bot || !message.guild) return;
 
-      // Run raid detection, scam detection, AFK handling, and leveling concurrently
+      // Run raid detection, scam detection, AI moderation, AFK handling, and leveling concurrently
       await Promise.all([
         handleLeveling(message, client),
         RaidDetectionService.processMessage(message, client).catch(err =>
@@ -30,6 +31,9 @@ export default {
         ),
         handleScamDetection(message, client).catch(err =>
           logger.debug('Error in scam detection:', err)
+        ),
+        AiModerationService.processMessage(message, client).catch(err =>
+          logger.debug('Error in AI moderation:', err)
         ),
         handleAfk(message, client).catch(err =>
           logger.debug('Error in AFK handling:', err)

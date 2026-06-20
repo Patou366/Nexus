@@ -48,7 +48,10 @@ const STRINGS = {
     name_sequential: t('Sequential Name Pattern', 'Patrón de Nombres Secuencial'),
     name_similarity: t('Similar Name Cluster', 'Clúster de Nombres Similares'),
     cross_channel_spam: t('Cross-Channel Spam', 'Spam Multi-Canal'),
-    burned_invite: t('Burned Invite', 'Invitación Comprometida')
+    burned_invite: t('Burned Invite', 'Invitación Comprometida'),
+    ai_spam: t('AI Detected Spam', 'IA Detectó Spam'),
+    ai_bot: t('AI Detected Bot', 'IA Detectó Bot'),
+    ai_raid: t('AI Detected Raid', 'IA Detectó Raid')
   }
 };
 
@@ -253,6 +256,14 @@ export class QuarantineService {
         reasonText = formatBilingual(STRINGS.spamReason, {
           count: meta.channelCount || 0
         });
+      } else if (quarantineData.reason?.startsWith('ai_')) {
+        const aiType = quarantineData.reason.replace('ai_', '').toUpperCase();
+        const confidence = meta.aiConfidence ? `${Math.round(meta.aiConfidence * 100)}%` : 'N/A';
+        reasonText = formatBilingual(
+          t(`AI Detection: ${aiType} (${confidence} confidence) — ${meta.aiReason || 'No details'}`,
+            `Detección IA: ${aiType} (${confidence} confianza) — ${meta.aiReason || 'Sin detalles'}`),
+          {}
+        );
       } else {
         reasonText = formatBilingual(t('Unknown', 'Desconocido'), {});
       }

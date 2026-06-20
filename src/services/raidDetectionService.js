@@ -735,7 +735,8 @@ export class RaidDetectionService {
         quarantineRoleId: config?.raidShield?.quarantineRoleId ?? null,
         quarantineChannelId: config?.raidShield?.quarantineChannelId ?? null,
         alertRoleId: config?.raidShield?.alertRoleId ?? null,
-        autoBan: config?.raidShield?.autoBan ?? false
+        autoBan: config?.raidShield?.autoBan ?? false,
+        aiModeration: config?.raidShield?.aiModeration ?? null
       };
     } catch (error) {
       logger.error('Error getting raid config:', error);
@@ -746,7 +747,8 @@ export class RaidDetectionService {
         quarantineRoleId: null,
         quarantineChannelId: null,
         alertRoleId: null,
-        autoBan: false
+        autoBan: false,
+        aiModeration: null
       };
     }
   }
