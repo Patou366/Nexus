@@ -1,10 +1,11 @@
-import { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ChannelType } from 'discord.js';
-import { createEmbed, errorEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
-import { logEvent } from '../../utils/moderation.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { successEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { ModerationService } from '../../services/moderationService.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { guardDefer } from '../../utils/commandGuards.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("untimeout")
@@ -15,19 +16,11 @@ export default {
                 .setDescription("User to untimeout")
                 .setRequired(true),
         )
-.setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
     category: "moderation",
 
     async execute(interaction, config, client) {
-        const deferSuccess = await InteractionHelper.safeDefer(interaction);
-        if (!deferSuccess) {
-            logger.warn(`Untimeout interaction defer failed`, {
-                userId: interaction.user.id,
-                guildId: interaction.guildId,
-                commandName: 'untimeout'
-            });
-            return;
-        }
+        if (!await guardDefer(interaction, 'untimeout')) return;
 
         try {
                 const targetUser = interaction.options.getUser("target");

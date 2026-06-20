@@ -1,10 +1,11 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
-import { createEmbed, errorEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
-import { logModerationAction } from '../../utils/moderation.js';
+import { successEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { ModerationService } from '../../services/moderationService.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { guardDefer } from '../../utils/commandGuards.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("unban")
@@ -24,15 +25,7 @@ export default {
     category: "moderation",
 
     async execute(interaction, config, client) {
-        const deferSuccess = await InteractionHelper.safeDefer(interaction);
-        if (!deferSuccess) {
-            logger.warn(`Unban interaction defer failed`, {
-                userId: interaction.user.id,
-                guildId: interaction.guildId,
-                commandName: 'unban'
-            });
-            return;
-        }
+        if (!await guardDefer(interaction, 'unban')) return;
 
         try {
                 const targetUser = interaction.options.getUser("target");

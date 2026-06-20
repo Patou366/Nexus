@@ -1,11 +1,13 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
-import { errorEmbed, successEmbed } from '../../utils/embeds.js';
+import { successEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { TitanBotError, ErrorTypes, handleInteractionError } from '../../utils/errorHandler.js';
 import { getGuildGiveaways, deleteGiveaway } from '../../utils/giveaways.js';
 import { logEvent, EVENT_TYPES } from '../../services/loggingService.js';
-
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { guardGuild, guardPermission } from '../../utils/commandGuards.js';
+import { safeLogEvent } from '../../utils/safeLogger.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("gdelete")
@@ -22,31 +24,13 @@ export default {
 
     async execute(interaction) {
         try {
-            
-            if (!interaction.inGuild()) {
-                throw new TitanBotError(
-                    'Giveaway command used outside guild',
-                    ErrorTypes.VALIDATION,
-                    'This command can only be used in a server.',
-                    { userId: interaction.user.id }
-                );
-            }
-
-            
-            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-                throw new TitanBotError(
-                    'User lacks ManageGuild permission',
-                    ErrorTypes.PERMISSION,
-                    "You need the 'Manage Server' permission to delete a giveaway.",
-                    { userId: interaction.user.id, guildId: interaction.guildId }
-                );
-            }
+            guardGuild(interaction);
+            guardPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server');
 
             logger.info(`Giveaway deletion started by ${interaction.user.tag} in guild ${interaction.guildId}`);
 
             const messageId = interaction.options.getString("messageid");
 
-            
             if (!messageId || !/^\d+$/.test(messageId)) {
                 throw new TitanBotError(
                     'Invalid message ID format',
@@ -87,7 +71,6 @@ export default {
                 return true;
             };
 
-            
             try {
                 const channel = await interaction.client.channels.fetch(giveaway.channelId).catch(() => null);
                 if (await tryDeleteFromChannel(channel)) {
@@ -111,7 +94,6 @@ export default {
                 logger.warn(`Could not delete giveaway message: ${error.message}`);
             }
 
-            
             const removedFromDatabase = await deleteGiveaway(
                 interaction.client,
                 interaction.guildId,
@@ -155,33 +137,20 @@ export default {
 
             logger.info(`Giveaway deleted: ${messageId} in ${channelName}`);
 
-            
-            try {
-                await logEvent({
-                    client: interaction.client,
-                    guildId: interaction.guildId,
-                    eventType: EVENT_TYPES.GIVEAWAY_DELETE,
-                    data: {
-                        description: `Giveaway deleted: ${giveaway.prize}`,
-                        channelId: giveaway.channelId,
-                        userId: interaction.user.id,
-                        fields: [
-                            {
-                                name: '🎁 Prize',
-                                value: giveaway.prize || 'Unknown',
-                                inline: true
-                            },
-                            {
-                                name: '📊 Entries',
-                                value: (giveaway.participants?.length || 0).toString(),
-                                inline: true
-                            }
-                        ]
-                    }
-                });
-            } catch (logError) {
-                logger.debug('Error logging giveaway deletion:', logError);
-            }
+            await safeLogEvent(() => logEvent({
+                client: interaction.client,
+                guildId: interaction.guildId,
+                eventType: EVENT_TYPES.GIVEAWAY_DELETE,
+                data: {
+                    description: `Giveaway deleted: ${giveaway.prize}`,
+                    channelId: giveaway.channelId,
+                    userId: interaction.user.id,
+                    fields: [
+                        { name: '🎁 Prize', value: giveaway.prize || 'Unknown', inline: true },
+                        { name: '📊 Entries', value: (giveaway.participants?.length || 0).toString(), inline: true }
+                    ]
+                }
+            }), 'giveaway deletion');
 
             return InteractionHelper.safeReply(interaction, {
                 embeds: [
@@ -203,5 +172,3 @@ export default {
         }
     },
 };
-
-
