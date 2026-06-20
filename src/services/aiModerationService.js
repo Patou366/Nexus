@@ -166,11 +166,13 @@ async function analyzeContent(text, imageUrls = []) {
 
     return classification;
   } catch (error) {
-    logger.error('AI moderation: Gemini API call failed', {
+    logger.error(`AI moderation: Gemini API call failed - ${error.message}`);
+    logger.error('AI moderation error details:', {
       event: 'ai_moderation.api_error',
       errorMessage: error.message,
-      errorCode: error.code ?? error.status ?? null,
-      error
+      errorCode: error.code ?? error.status ?? 'UNKNOWN',
+      errorName: error.name,
+      errorStack: error.stack
     });
     return null;
   }
@@ -471,3 +473,4 @@ export class AiModerationService {
     }
   }
 }
+
