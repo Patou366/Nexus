@@ -35,7 +35,6 @@ function getGeminiClient() {
   geminiClient = new GoogleGenerativeAI(apiKey);
   return geminiClient;
 }
-
 /**
  * Download an image and convert it to a Gemini-compatible inline data part
  * @param {string} url
@@ -46,13 +45,18 @@ async function fetchImageAsInlineData(url) {
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
       timeout: 10000,
-      maxContentLength: 4 * 1024 * 1024
+      maxContentLength: 4 * 1024 * 1024,
+      headers: {
+        // Disguise the request to bypass Discord CDN 403 Forbidden blocks
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
+      }
     });
     const mimeType = response.headers['content-type'] || 'image/png';
     const base64 = Buffer.from(response.data).toString('base64');
     return { inlineData: { data: base64, mimeType } };
   } catch (error) {
-    logger.debug(`Failed to fetch image for AI analysis: ${error.message}`);
+    logger.error(`Failed to fetch image for AI analysis: ${error.message}`);
     return null;
   }
 }
