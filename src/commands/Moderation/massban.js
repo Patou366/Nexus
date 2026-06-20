@@ -1,10 +1,18 @@
-import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
-import { createEmbed, errorEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { errorEmbed } from '../../utils/embeds.js';
 import { logModerationAction } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
-import { checkRateLimit } from '../../utils/rateLimiter.js';
-
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { handleInteractionError } from '../../utils/errorHandler.js';
+import { guardDefer, guardPermission, guardRateLimit } from '../../utils/commandGuards.js';
+import {
+    parseUserIds,
+    createMassActionResults,
+    checkMassActionHierarchy,
+    formatMassActionResults,
+    getMassActionEmbed
+} from '../../utils/massActionHelper.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("massban")
@@ -32,52 +40,18 @@ export default {
     category: "moderation",
 
     async execute(interaction, config, client) {
-        const deferSuccess = await InteractionHelper.safeDefer(interaction);
-        if (!deferSuccess) {
-            logger.warn(`Massban interaction defer failed`, {
-                userId: interaction.user.id,
-                guildId: interaction.guildId,
-                commandName: 'massban'
-            });
-            return;
-        }
-
-        if (!interaction.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-            return await InteractionHelper.safeEditReply(interaction, {
-                embeds: [
-                    errorEmbed(
-                        "Permission Denied",
-                        "You do not have permission to ban members."
-                    ),
-                ],
-            });
-        }
-
-        const usersInput = interaction.options.getString("users");
-        const reason = interaction.options.getString("reason") || "Mass ban - No reason provided";
-        const deleteDays = interaction.options.getInteger("delete_days") || 0;
+        if (!await guardDefer(interaction, 'massban')) return;
 
         try {
-            
-            const rateLimitKey = `massban_${interaction.user.id}`;
-            const isAllowed = await checkRateLimit(rateLimitKey, 3, 60000);
-            if (!isAllowed) {
-                return await InteractionHelper.safeEditReply(interaction, {
-                    embeds: [
-                        warningEmbed(
-                            "You're performing mass bans too fast. Please wait a minute before trying again.",
-                            "⏳ Rate Limited"
-                        ),
-                    ],
-                    flags: MessageFlags.Ephemeral,
-                });
-            }
+            guardPermission(interaction, PermissionFlagsBits.BanMembers, 'Ban Members');
 
-            const userIds = usersInput
-.replace(/<@!?(\d+)>/g, '$1')
-.split(/[\s,]+/)
-.filter(id => id && /^\d+$/.test(id))
-.slice(0, 20);
+            const usersInput = interaction.options.getString("users");
+            const reason = interaction.options.getString("reason") || "Mass ban - No reason provided";
+            const deleteDays = interaction.options.getInteger("delete_days") || 0;
+
+            if (!await guardRateLimit(interaction, 'massban', 3, 60000)) return;
+
+            const userIds = parseUserIds(usersInput);
 
             if (userIds.length === 0) {
                 return await InteractionHelper.safeEditReply(interaction, {
@@ -93,10 +67,7 @@ export default {
             if (userIds.includes(interaction.user.id)) {
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
-                        errorEmbed(
-                            "Cannot Ban Self",
-                            "You cannot include yourself in a mass ban."
-                        ),
+                        errorEmbed("Cannot Ban Self", "You cannot include yourself in a mass ban."),
                     ],
                 });
             }
@@ -104,38 +75,31 @@ export default {
             if (userIds.includes(client.user.id)) {
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
-                        errorEmbed(
-                            "Cannot Ban Bot",
-                            "You cannot include the bot in a mass ban."
-                        ),
+                        errorEmbed("Cannot Ban Bot", "You cannot include the bot in a mass ban."),
                     ],
                 });
             }
 
-            const results = {
-                successful: [],
-                failed: [],
-                skipped: []
-            };
+            const results = createMassActionResults();
 
             for (const userId of userIds) {
                 try {
                     const user = await client.users.fetch(userId).catch(() => null);
-                    
+
                     if (!user) {
                         results.failed.push({ userId, reason: "User not found" });
                         continue;
                     }
 
                     const member = await interaction.guild.members.fetch(userId).catch(() => null);
-                    
+
                     if (member) {
-                        if (member.roles.highest.position >= interaction.member.roles.highest.position && 
-                            interaction.guild.ownerId !== interaction.user.id) {
-                            results.skipped.push({ 
-                                user: user.tag, 
-                                userId, 
-                                reason: "Cannot ban user with equal or higher role" 
+                        const hierarchy = checkMassActionHierarchy(member, interaction);
+                        if (!hierarchy.allowed) {
+                            results.skipped.push({
+                                user: user.tag,
+                                userId,
+                                reason: hierarchy.reason
                             });
                             continue;
                         }
@@ -146,10 +110,7 @@ export default {
                         deleteMessageDays: deleteDays
                     });
 
-                    results.successful.push({
-                        user: user.tag,
-                        userId
-                    });
+                    results.successful.push({ user: user.tag, userId });
 
                     await logModerationAction({
                         client,
@@ -170,62 +131,23 @@ export default {
 
                 } catch (error) {
                     logger.error(`Failed to ban user ${userId}:`, error);
-                    results.failed.push({ 
-                        userId, 
-                        reason: error.message || "Unknown error" 
+                    results.failed.push({
+                        userId,
+                        reason: error.message || "Unknown error"
                     });
                 }
             }
 
-            let description = `**Mass Ban Results:**\n\n`;
-            
-            if (results.successful.length > 0) {
-                description += `✅ **Successfully Banned (${results.successful.length}):**\n`;
-                results.successful.forEach(result => {
-                    description += `• ${result.user} (${result.userId})\n`;
-                });
-                description += '\n';
-            }
+            const description = formatMassActionResults(results, 'Ban');
+            const embed = getMassActionEmbed(results);
 
-            if (results.skipped.length > 0) {
-                description += `⚠️ **Skipped (${results.skipped.length}):**\n`;
-                results.skipped.forEach(result => {
-                    description += `• ${result.user} - ${result.reason}\n`;
-                });
-                description += '\n';
-            }
-
-            if (results.failed.length > 0) {
-                description += `❌ **Failed (${results.failed.length}):**\n`;
-                results.failed.forEach(result => {
-                    description += `• ${result.userId} - ${result.reason}\n`;
-                });
-            }
-
-            const embed = results.successful.length > 0 ? successEmbed : warningEmbed;
-            
             return await InteractionHelper.safeEditReply(interaction, {
-                embeds: [
-                    embed(
-                        `🔨 Mass Ban Completed`,
-                        description
-                    )
-                ]
+                embeds: [embed(`🔨 Mass Ban Completed`, description)]
             });
 
         } catch (error) {
             logger.error("Error in massban command:", error);
-            return await InteractionHelper.safeEditReply(interaction, {
-                embeds: [
-                    errorEmbed(
-                        "System Error",
-                        "An error occurred while processing the mass ban. Please try again later."
-                    ),
-                ],
-            });
+            await handleInteractionError(interaction, error, { subtype: 'massban_failed' });
         }
     }
 };
-
-
-

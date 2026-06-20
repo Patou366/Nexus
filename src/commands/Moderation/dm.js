@@ -1,10 +1,12 @@
-import { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ChannelType, MessageFlags } from 'discord.js';
-import { createEmbed, errorEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
+import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
+import { errorEmbed, successEmbed } from '../../utils/embeds.js';
 import { logEvent } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
 import { sanitizeMarkdown } from '../../utils/sanitization.js';
-
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { handleInteractionError } from '../../utils/errorHandler.js';
+import { guardDefer } from '../../utils/commandGuards.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("dm")
@@ -32,22 +34,13 @@ export default {
     category: "Moderation",
 
     async execute(interaction, config, client) {
-        const deferSuccess = await InteractionHelper.safeDefer(interaction);
-        if (!deferSuccess) {
-            logger.warn(`DM interaction defer failed`, {
-                userId: interaction.user.id,
-                guildId: interaction.guildId,
-                commandName: 'dm'
-            });
-            return;
-        }
+        if (!await guardDefer(interaction, 'dm')) return;
 
-    const targetUser = interaction.options.getUser("user");
+        const targetUser = interaction.options.getUser("user");
         const message = interaction.options.getString("message");
         const anonymous = interaction.options.getBoolean("anonymous") || false;
 
         try {
-            
             if (message.length > 2000) {
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
@@ -60,7 +53,6 @@ export default {
                 });
             }
 
-            
             if (targetUser.bot) {
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
@@ -73,11 +65,10 @@ export default {
                 });
             }
 
-            
             const sanitized = sanitizeMarkdown(message);
 
             const dmChannel = await targetUser.createDM();
-            
+
             await dmChannel.send({
                 embeds: [
                     successEmbed(
@@ -116,22 +107,14 @@ export default {
             });
         } catch (error) {
             logger.error('DM command error:', error);
-            
-if (error.code === 50007) {
+            if (error.code === 50007) {
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
                         errorEmbed("Error", `Could not send a DM to ${targetUser.tag}. They may have DMs disabled.`),
                     ],
                 });
             }
-            
-            return await InteractionHelper.safeEditReply(interaction, {
-                embeds: [
-                    errorEmbed("Error", `Failed to send DM: ${error.message}`),
-                ],
-            });
+            await handleInteractionError(interaction, error, { subtype: 'dm_failed' });
         }
     }
 };
-
-

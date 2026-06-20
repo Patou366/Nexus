@@ -1,11 +1,16 @@
-import { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ChannelType } from 'discord.js';
-import { createEmbed, errorEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { successEmbed } from '../../utils/embeds.js';
 import { logModerationAction } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
-import { TitanBotError, ErrorTypes } from '../../utils/errorHandler.js';
-
-
+import { TitanBotError, ErrorTypes, handleInteractionError } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import {
+    guardDefer,
+    guardPermission,
+    guardSelfTarget,
+    guardMemberExists
+} from '../../utils/commandGuards.js';
+
 const durationChoices = [
     { name: "5 minutes", value: 5 },
     { name: "10 minutes", value: 10 },
@@ -15,6 +20,7 @@ const durationChoices = [
     { name: "1 day", value: 1440 },
     { name: "1 week", value: 10080 },
 ];
+
 export default {
     data: new SlashCommandBuilder()
         .setName("timeout")
@@ -31,60 +37,27 @@ export default {
                     .setName("duration")
                     .setDescription("Duration of the timeout")
                     .setRequired(true)
-.addChoices(...durationChoices),
+                    .addChoices(...durationChoices),
         )
         .addStringOption((option) =>
             option.setName("reason").setDescription("Reason for the timeout"),
         )
-.setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
     category: "moderation",
 
     async execute(interaction, config, client) {
-        const deferSuccess = await InteractionHelper.safeDefer(interaction);
-        if (!deferSuccess) {
-            logger.warn(`Timeout interaction defer failed`, {
-                userId: interaction.user.id,
-                guildId: interaction.guildId,
-                commandName: 'timeout'
-            });
-            return;
-        }
+        if (!await guardDefer(interaction, 'timeout')) return;
 
         try {
-            if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) {
-                throw new TitanBotError(
-                    "User lacks permission",
-                    ErrorTypes.PERMISSION,
-                    "You need the `Moderate Members` permission to set a timeout."
-                );
-            }
+            guardPermission(interaction, PermissionFlagsBits.ModerateMembers, 'Moderate Members');
 
             const targetUser = interaction.options.getUser("target");
             const member = interaction.options.getMember("target");
             const durationMinutes = interaction.options.getInteger("duration");
             const reason = interaction.options.getString("reason") || "No reason provided";
 
-            if (targetUser.id === interaction.user.id) {
-                throw new TitanBotError(
-                    "Cannot timeout self",
-                    ErrorTypes.VALIDATION,
-                    "You cannot timeout yourself."
-                );
-            }
-            if (targetUser.id === client.user.id) {
-                throw new TitanBotError(
-                    "Cannot timeout bot",
-                    ErrorTypes.VALIDATION,
-                    "You cannot timeout the bot."
-                );
-            }
-            if (!member) {
-                throw new TitanBotError(
-                    "Target not found",
-                    ErrorTypes.USER_INPUT,
-                    "The target user is not currently in this server."
-                );
-            }
+            guardSelfTarget(targetUser.id, interaction, client, 'timeout');
+            guardMemberExists(member);
 
             if (!member.moderatable) {
                 throw new TitanBotError(
@@ -129,16 +102,7 @@ export default {
             });
         } catch (error) {
             logger.error('Timeout command error:', error);
-            await InteractionHelper.safeEditReply(interaction, {
-                embeds: [
-                    errorEmbed(
-                        error.userMessage || "An unexpected error occurred during the timeout action. Please check my role permissions.",
-                    ),
-                ],
-            });
+            await handleInteractionError(interaction, error, { subtype: 'timeout_failed' });
         }
     }
 };
-
-
-

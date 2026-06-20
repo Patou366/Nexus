@@ -1,54 +1,33 @@
-import { SlashCommandBuilder, PermissionFlagsBits, PermissionsBitField, ChannelType } from 'discord.js';
-import { createEmbed, errorEmbed, successEmbed, infoEmbed, warningEmbed } from '../../utils/embeds.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
+import { errorEmbed, successEmbed } from '../../utils/embeds.js';
 import { logEvent } from '../../utils/moderation.js';
 import { logger } from '../../utils/logger.js';
-import { getColor } from '../../config/bot.js';
-
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { handleInteractionError } from '../../utils/errorHandler.js';
+import { guardDefer, guardPermission } from '../../utils/commandGuards.js';
+
 export default {
     data: new SlashCommandBuilder()
         .setName("unlock")
         .setDescription(
             "Unlocks the current channel (allows @everyone to send messages again).",
         )
-.setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageChannels),
     category: "moderation",
 
     async execute(interaction, config, client) {
-        const deferSuccess = await InteractionHelper.safeDefer(interaction);
-        if (!deferSuccess) {
-            logger.warn(`Unlock interaction defer failed`, {
-                userId: interaction.user.id,
-                guildId: interaction.guildId,
-                commandName: 'unlock'
-            });
-            return;
-        }
-
-        if (
-            !interaction.member.permissions.has(
-                PermissionFlagsBits.ManageChannels,
-            )
-        )
-            return await InteractionHelper.safeEditReply(interaction, {
-                embeds: [
-                    errorEmbed(
-                        "Permission Denied",
-                        "You need the `Manage Channels` permission to unlock channels.",
-                    ),
-                ],
-            });
-
-        const channel = interaction.channel;
-        const everyoneRole = interaction.guild.roles.everyone;
+        if (!await guardDefer(interaction, 'unlock')) return;
 
         try {
+            guardPermission(interaction, PermissionFlagsBits.ManageChannels, 'Manage Channels');
+
+            const channel = interaction.channel;
+            const everyoneRole = interaction.guild.roles.everyone;
+
             const currentPermissions = channel.permissionsFor(everyoneRole);
             if (
-                currentPermissions.has(PermissionFlagsBits.SendMessages) ===
-                    true ||
-                currentPermissions.has(PermissionFlagsBits.SendMessages) ===
-                    null
+                currentPermissions.has(PermissionFlagsBits.SendMessages) === true ||
+                currentPermissions.has(PermissionFlagsBits.SendMessages) === null
             ) {
                 return await InteractionHelper.safeEditReply(interaction, {
                     embeds: [
@@ -66,26 +45,8 @@ export default {
                 {
                     type: 0,
                     reason: `Channel unlocked by ${interaction.user.tag}`,
-},
+                },
             );
-
-            const unlockEmbed = createEmbed(
-                "🔓 Channel Unlocked (Action Log)",
-                `${channel} has been unlocked by ${interaction.user}.`,
-            )
-.setColor(getColor('success'))
-                .addFields(
-                    {
-                        name: "Channel",
-                        value: channel.toString(),
-                        inline: true,
-                    },
-                    {
-                        name: "Moderator",
-                        value: `${interaction.user.tag} (${interaction.user.id})`,
-                        inline: true,
-                    },
-                );
 
             await logEvent({
                 client,
@@ -111,16 +72,7 @@ export default {
             });
         } catch (error) {
             logger.error('Unlock command error:', error);
-            await InteractionHelper.safeEditReply(interaction, {
-                embeds: [
-                    errorEmbed(
-                        "An unexpected error occurred while trying to unlock the channel. Check my permissions (I need 'Manage Channels').",
-                    ),
-                ],
-            });
+            await handleInteractionError(interaction, error, { subtype: 'unlock_failed' });
         }
     }
 };
-
-
-

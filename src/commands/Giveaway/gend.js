@@ -1,15 +1,17 @@
 import { SlashCommandBuilder, PermissionFlagsBits, MessageFlags } from 'discord.js';
-import { errorEmbed, successEmbed } from '../../utils/embeds.js';
+import { successEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
 import { TitanBotError, ErrorTypes, handleInteractionError } from '../../utils/errorHandler.js';
 import { getGuildGiveaways, saveGiveaway } from '../../utils/giveaways.js';
-import { 
+import {
     endGiveaway as endGiveawayService,
-    createGiveawayEmbed, 
-    createGiveawayButtons 
+    createGiveawayEmbed,
+    createGiveawayButtons
 } from '../../services/giveawayService.js';
 import { logEvent, EVENT_TYPES } from '../../services/loggingService.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
+import { guardGuild, guardPermission } from '../../utils/commandGuards.js';
+import { safeLogEvent } from '../../utils/safeLogger.js';
 
 export default {
     data: new SlashCommandBuilder()
@@ -27,31 +29,13 @@ export default {
 
     async execute(interaction) {
         try {
-            
-            if (!interaction.inGuild()) {
-                throw new TitanBotError(
-                    'Giveaway command used outside guild',
-                    ErrorTypes.VALIDATION,
-                    'This command can only be used in a server.',
-                    { userId: interaction.user.id }
-                );
-            }
-
-            
-            if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
-                throw new TitanBotError(
-                    'User lacks ManageGuild permission',
-                    ErrorTypes.PERMISSION,
-                    "You need the 'Manage Server' permission to end a giveaway.",
-                    { userId: interaction.user.id, guildId: interaction.guildId }
-                );
-            }
+            guardGuild(interaction);
+            guardPermission(interaction, PermissionFlagsBits.ManageGuild, 'Manage Server');
 
             logger.info(`Giveaway end initiated by ${interaction.user.tag} in guild ${interaction.guildId}`);
 
             const messageId = interaction.options.getString("messageid");
 
-            
             if (!messageId || !/^\d+$/.test(messageId)) {
                 throw new TitanBotError(
                     'Invalid message ID format',
@@ -73,7 +57,6 @@ export default {
                 );
             }
 
-            
             const endResult = await endGiveawayService(
                 interaction.client,
                 giveaway,
@@ -84,7 +67,6 @@ export default {
             const updatedGiveaway = endResult.giveaway;
             const winners = endResult.winners;
 
-            
             const channel = await interaction.client.channels.fetch(
                 updatedGiveaway.channelId,
             ).catch(err => {
@@ -117,14 +99,12 @@ export default {
                 );
             }
 
-            
             await saveGiveaway(
                 interaction.client,
                 interaction.guildId,
                 updatedGiveaway,
             );
 
-            
             const newEmbed = createGiveawayEmbed(updatedGiveaway, "ended", winners);
             const newRow = createGiveawayButtons(true);
 
@@ -134,7 +114,6 @@ export default {
                 components: [newRow],
             });
 
-            
             if (winners.length > 0) {
                 const winnerMentions = winners
                     .map((id) => `<@${id}>`)
@@ -147,38 +126,21 @@ export default {
 
                 logger.info(`Giveaway ended with ${winners.length} winner(s): ${messageId}`);
 
-                
-                try {
-                    await logEvent({
-                        client: interaction.client,
-                        guildId: interaction.guildId,
-                        eventType: EVENT_TYPES.GIVEAWAY_WINNER,
-                        data: {
-                            description: `Giveaway ended with ${winners.length} winner(s)`,
-                            channelId: channel.id,
-                            userId: interaction.user.id,
-                            fields: [
-                                {
-                                    name: '🎁 Prize',
-                                    value: updatedGiveaway.prize || 'Mystery Prize!',
-                                    inline: true
-                                },
-                                {
-                                    name: '🏆 Winners',
-                                    value: winnerMentions,
-                                    inline: false
-                                },
-                                {
-                                    name: '👥 Entries',
-                                    value: endResult.participantCount.toString(),
-                                    inline: true
-                                }
-                            ]
-                        }
-                    });
-                } catch (logError) {
-                    logger.debug('Error logging giveaway winner event:', logError);
-                }
+                await safeLogEvent(() => logEvent({
+                    client: interaction.client,
+                    guildId: interaction.guildId,
+                    eventType: EVENT_TYPES.GIVEAWAY_WINNER,
+                    data: {
+                        description: `Giveaway ended with ${winners.length} winner(s)`,
+                        channelId: channel.id,
+                        userId: interaction.user.id,
+                        fields: [
+                            { name: '🎁 Prize', value: updatedGiveaway.prize || 'Mystery Prize!', inline: true },
+                            { name: '🏆 Winners', value: winnerMentions, inline: false },
+                            { name: '👥 Entries', value: endResult.participantCount.toString(), inline: true }
+                        ]
+                    }
+                }), 'giveaway winner');
             } else {
                 await channel.send({
                     content: `The giveaway for **${updatedGiveaway.prize}** has ended with no valid entries.`,
@@ -207,6 +169,3 @@ export default {
         }
     },
 };
-
-
-
