@@ -86,11 +86,6 @@ export async function createInitialHelpMenu(client) {
             inline: true
         },
         {
-            name: "💰 **Economy / Economia**",
-            value: "Currency system, shops, and virtual economy / Sistema de moneda, tiendas y economia virtual",
-            inline: true
-        },
-        {
             name: "🎮 **Fun / Diversion**",
             value: "Games, entertainment, and interactive commands / Juegos, entretenimiento y comandos interactivos",
             inline: true
