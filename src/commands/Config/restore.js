@@ -75,8 +75,13 @@ export default {
             const embed = new EmbedBuilder()
                 .setColor(getColor('success'))
                 .setTitle('Restoration Complete / Restauracion Completa')
-                .setDescription(`Successfully restored missing channels from backup \`${saveId}\`.\n\nSe restauraron exitosamente los canales faltantes desde la copia de seguridad \`${saveId}\`.`)
+                .setDescription(`Successfully restored from backup \`${saveId}\`.\n\nSe restauro exitosamente desde la copia de seguridad \`${saveId}\`.`)
                 .addFields(
+                    {
+                        name: 'Roles Created / Roles Creados',
+                        value: results.rolesCreated.toString(),
+                        inline: true
+                    },
                     {
                         name: 'Categories Created / Categorias Creadas',
                         value: results.categoriesCreated.toString(),
@@ -113,8 +118,8 @@ export default {
             }
 
             // If nothing was restored
-            if (results.categoriesCreated === 0 && results.channelsCreated === 0) {
-                embed.setDescription(`All channels from the backup already exist in the server!\n\n¡Todos los canales de la copia de seguridad ya existen en el servidor!`);
+            if (results.rolesCreated === 0 && results.categoriesCreated === 0 && results.channelsCreated === 0) {
+                embed.setDescription(`All roles and channels from the backup already exist in the server!\n\n¡Todos los roles y canales de la copia de seguridad ya existen en el servidor!`);
                 embed.setColor(getColor('info'));
             }
 

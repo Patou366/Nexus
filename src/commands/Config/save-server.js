@@ -50,9 +50,11 @@ export default {
 
             const totalChannels = snapshot.categories.reduce((acc, cat) => acc + cat.channels.length, 0);
             const totalCategories = snapshot.categories.filter(c => c.id !== null).length;
+            const totalRoles = snapshot.roles ? snapshot.roles.length : 0;
 
             let description = `Successfully saved server layout! / ¡Diseño del servidor guardado exitosamente!\n\n`;
             description += `**Save ID / ID de Guardado:** \`${result.saveId}\`\n`;
+            description += `**Roles Captured / Roles Capturados:** ${totalRoles}\n`;
             description += `**Channels Captured / Canales Capturados:** ${totalChannels}\n`;
             description += `**Categories Captured / Categorias Capturadas:** ${totalCategories}\n`;
             description += `**Saves Remaining / Guardados Restantes:** ${MAX_SAVES_PER_GUILD - existingSaves.length}/${MAX_SAVES_PER_GUILD}`;

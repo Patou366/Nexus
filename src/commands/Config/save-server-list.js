@@ -67,6 +67,7 @@ export default {
                 embed.addFields({
                     name: `Save ID: \`${save.saveId}\` / ID de Guardado: \`${save.saveId}\``,
                     value: `**Created / Creado:** ${formattedDate} (${relativeDate})\n` +
+                           `**Roles:** ${save.roleCount || 0}\n` +
                            `**Channels / Canales:** ${save.channelCount}\n` +
                            `**Creator / Creador:** <@${save.creatorId}>`,
                     inline: false
