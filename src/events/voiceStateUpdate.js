@@ -234,7 +234,7 @@ userLimit: userLimit === 0 ? undefined : userLimit,
                         content: `❌ Failed to create your temporary voice channel. Please contact a server administrator.`
                     });
                 } catch (dmError) {
-                    logger.debug(`Unable to send temporary channel failure DM to user ${member.id}:`, dmError);
+                    logger.warn(`Unable to send temporary channel failure DM to user ${member.id}:`, dmError.message);
                 }
             }
         }

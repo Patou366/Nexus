@@ -297,12 +297,13 @@ export async function getGuildConfig(client, guildId, context = {}) {
  * @returns {Promise<boolean>} Success status
  */
 export async function setGuildConfig(client, guildId, config, context = {}) {
-    try {
-        if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for setGuildConfig");
-            return false;
-        }
+    if (!client.db || typeof client.db.set !== "function") {
+        const err = new Error('Database client is not available for setGuildConfig');
+        logger.error(err.message, { guildId, traceId: context.traceId });
+        throw err;
+    }
 
+    try {
         const key = getGuildConfigKey(guildId);
         const validated = validateGuildConfigOrThrow(config, { guildId, ...context });
         await client.db.set(key, validated);
@@ -315,7 +316,7 @@ export async function setGuildConfig(client, guildId, config, context = {}) {
             userId: context.userId,
             command: context.command
         });
-        return false;
+        throw error;
     }
 }
 
@@ -376,12 +377,13 @@ export async function getGuildBirthdays(client, guildId) {
  * @returns {Promise<boolean>} Success status
  */
 export async function setBirthday(client, guildId, userId, month, day) {
-    try {
-        if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for setBirthday.");
-            return false;
-        }
+    if (!client.db || typeof client.db.set !== "function") {
+        const err = new Error('Database client is not available for setBirthday.');
+        logger.error(err.message, { guildId, userId });
+        throw err;
+    }
 
+    try {
         const key = getGuildBirthdaysKey(guildId);
         const birthdays = await getGuildBirthdays(client, guildId);
         birthdays[userId] = { month, day };
@@ -389,7 +391,7 @@ export async function setBirthday(client, guildId, userId, month, day) {
         return true;
     } catch (error) {
         logger.error(`Error setting birthday for user ${userId} in guild ${guildId}:`, error);
-        return false;
+        throw error;
     }
 }
 
@@ -401,12 +403,13 @@ export async function setBirthday(client, guildId, userId, month, day) {
  * @returns {Promise<boolean>} Success status
  */
 export async function deleteBirthday(client, guildId, userId) {
-    try {
-        if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for deleteBirthday.");
-            return false;
-        }
+    if (!client.db || typeof client.db.set !== "function") {
+        const err = new Error('Database client is not available for deleteBirthday.');
+        logger.error(err.message, { guildId, userId });
+        throw err;
+    }
 
+    try {
         const key = getGuildBirthdaysKey(guildId);
         const birthdays = await getGuildBirthdays(client, guildId);
         if (birthdays[userId]) {
@@ -416,7 +419,7 @@ export async function deleteBirthday(client, guildId, userId) {
         return true;
     } catch (error) {
         logger.error(`Error deleting birthday for user ${userId} in guild ${guildId}:`, error);
-        return false;
+        throw error;
     }
 }
 
@@ -465,12 +468,13 @@ export async function getGuildGiveaways(client, guildId) {
  * @returns {Promise<boolean>} Success status
  */
 export async function saveGiveaway(client, guildId, giveawayData) {
-    try {
-        if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for saveGiveaway.");
-            return false;
-        }
+    if (!client.db || typeof client.db.set !== "function") {
+        const err = new Error('Database client is not available for saveGiveaway.');
+        logger.error(err.message, { guildId });
+        throw err;
+    }
 
+    try {
         const key = giveawayKey(guildId);
         const giveaways = await getGuildGiveaways(client, guildId);
         
@@ -480,7 +484,7 @@ export async function saveGiveaway(client, guildId, giveawayData) {
         return true;
     } catch (error) {
         logger.error('Error saving giveaway:', error);
-        return false;
+        throw error;
     }
 }
 
@@ -504,7 +508,7 @@ export async function deleteGiveaway(client, guildId, messageId) {
         return false;
     } catch (error) {
         logger.error('Error deleting giveaway:', error);
-        return false;
+        throw error;
     }
 }
 
@@ -551,17 +555,20 @@ export async function getEndedGiveaways(client) {
  * @returns {Promise<boolean>} Success status
  */
 export async function markGiveawayEnded(client, giveawayId, endedData) {
-    try {
-        if (!client.db || !client.db.isAvailable()) {
-            logger.warn('Database not available for markGiveawayEnded');
-            return false;
-        }
+    if (!client.db || !client.db.isAvailable()) {
+        const err = new Error('Database not available for markGiveawayEnded');
+        logger.warn(err.message, { giveawayId });
+        throw err;
+    }
 
+    try {
         const { pgDb } = await import('./postgresDatabase.js');
         const { pgConfig } = await import('../config/postgres.js');
         
         if (!pgDb.isAvailable()) {
-            return false;
+            const err = new Error('PostgreSQL not available for markGiveawayEnded');
+            logger.warn(err.message, { giveawayId });
+            throw err;
         }
 
         await pgDb.pool.query(
@@ -574,7 +581,7 @@ export async function markGiveawayEnded(client, giveawayId, endedData) {
         return true;
     } catch (error) {
         logger.error('Error marking giveaway as ended:', error);
-        return false;
+        throw error;
     }
 }
 
@@ -818,7 +825,7 @@ export async function saveWelcomeConfig(client, guildId, config) {
         return true;
     } catch (error) {
         logger.error(`Error saving welcome config for guild ${guildId}:`, error);
-        return false;
+        throw error;
     }
 }
 
@@ -914,7 +921,7 @@ export async function saveLevelingConfig(client, guildId, config) {
         return true;
     } catch (error) {
         logger.error(`Error saving leveling config for guild ${guildId}:`, error);
-        return false;
+        throw error;
     }
 }
 
@@ -988,7 +995,7 @@ export async function saveUserLevelData(client, guildId, userId, data) {
         return true;
     } catch (error) {
         logger.error(`Error saving level data for user ${userId} in guild ${guildId}:`, error);
-        return false;
+        throw error;
     }
 }
 

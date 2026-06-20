@@ -102,15 +102,11 @@ export default {
             });
 
             initialGiveawayData.messageId = giveawayMessage.id;
-            const saved = await saveGiveaway(
+            await saveGiveaway(
                 interaction.client,
                 interaction.guildId,
                 initialGiveawayData,
             );
-
-            if (!saved) {
-                logger.warn(`Failed to save giveaway to database: ${giveawayMessage.id}`);
-            }
 
             await safeLogEvent(() => logEvent({
                 client: interaction.client,

@@ -70,7 +70,7 @@ async function handleReactionAdd(client, reaction, user) {
                 }
             });
         } catch (error) {
-            logger.debug('Error logging reaction role add:', error);
+            logger.warn('Error logging reaction role add:', error);
         }
 
     } catch (error) {
@@ -144,7 +144,7 @@ async function handleReactionRemove(client, reaction, user) {
                 }
             });
         } catch (error) {
-            logger.debug('Error logging reaction role remove:', error);
+            logger.warn('Error logging reaction role remove:', error);
         }
 
     } catch (error) {

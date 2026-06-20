@@ -309,6 +309,7 @@ class TitanBot extends Client {
       await registerSlashCommands(this, this.config.bot.clientId, this.config.bot.guildId);
     } catch (error) {
       logger.error('Error registering commands:', error);
+      throw error;
     }
   }
 

@@ -189,7 +189,7 @@ export async function updateCounter(client, guild, counter) {
             }
           });
         } catch (error) {
-          logger.debug('Error logging counter update:', error);
+          logger.warn('Error logging counter update:', error);
         }
 
       } catch (error) {

@@ -15,7 +15,7 @@ export default {
         // Anti-nuke: detect mass channel deletions for every channel type
         if (channel.guild) {
             await RaidDetectionService.processChannelDelete(channel, client).catch(err =>
-                logger.debug('Error in anti-nuke channel delete processing:', err)
+                logger.warn('Error in anti-nuke channel delete processing:', err)
             );
         }
 
