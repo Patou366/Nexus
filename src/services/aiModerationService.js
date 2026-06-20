@@ -69,7 +69,17 @@ async function fetchImageAsInlineData(url) {
  */
 async function analyzeContent(text, imageUrls = []) {
   const client = getGeminiClient();
-  if (!client) return null;
+  if (!client) {
+    logger.warn('AI moderation: analyzeContent called but Gemini client could not be initialised (missing API key?)');
+    return null;
+  }
+
+  logger.debug('AI moderation: analyzeContent called', {
+    event: 'ai_moderation.analyze_start',
+    textLength: text?.length ?? 0,
+    imageCount: imageUrls.length,
+    textPreview: text?.slice(0, 100) ?? ''
+  });
 
   const parts = [];
 
@@ -82,7 +92,14 @@ async function analyzeContent(text, imageUrls = []) {
     if (imagePart) parts.push(imagePart);
   }
 
-  if (parts.length === 0) return null;
+  if (parts.length === 0) {
+    logger.debug('AI moderation: no analysable content (text too short and no images), skipping', {
+      event: 'ai_moderation.analyze_skip',
+      textLength: text?.length ?? 0,
+      imageCount: imageUrls.length
+    });
+    return null;
+  }
 
   try {
     const model = client.getGenerativeModel({
@@ -99,23 +116,62 @@ async function analyzeContent(text, imageUrls = []) {
     });
 
     const raw = result.response?.text()?.trim();
-    if (!raw) return null;
+
+    logger.debug('AI moderation: raw Gemini response received', {
+      event: 'ai_moderation.raw_response',
+      rawResponse: raw ?? '(empty)'
+    });
+
+    if (!raw) {
+      logger.warn('AI moderation: Gemini returned an empty response', {
+        event: 'ai_moderation.empty_response'
+      });
+      return null;
+    }
 
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
-    const parsed = JSON.parse(cleaned);
-    if (!parsed.classification || typeof parsed.confidence !== 'number') return null;
 
-    return {
+    let parsed;
+    try {
+      parsed = JSON.parse(cleaned);
+    } catch (parseError) {
+      logger.warn('AI moderation: failed to parse Gemini response as JSON', {
+        event: 'ai_moderation.json_parse_error',
+        parseError: parseError.message,
+        rawResponse: raw
+      });
+      return null;
+    }
+
+    if (!parsed.classification || typeof parsed.confidence !== 'number') {
+      logger.warn('AI moderation: parsed JSON is missing required fields', {
+        event: 'ai_moderation.invalid_response_shape',
+        parsed: JSON.stringify(parsed)
+      });
+      return null;
+    }
+
+    const classification = {
       classification: parsed.classification,
       confidence: parsed.confidence,
       reason: parsed.reason || 'No reason provided'
     };
+
+    logger.debug('AI moderation: classification result', {
+      event: 'ai_moderation.classification_result',
+      classification: classification.classification,
+      confidence: classification.confidence,
+      reason: classification.reason
+    });
+
+    return classification;
   } catch (error) {
-    if (error instanceof SyntaxError) {
-      logger.debug('AI moderation returned non-JSON response');
-    } else {
-      logger.debug('AI moderation API error:', error.message);
-    }
+    logger.error('AI moderation: Gemini API call failed', {
+      event: 'ai_moderation.api_error',
+      errorMessage: error.message,
+      errorCode: error.code ?? error.status ?? null,
+      error
+    });
     return null;
   }
 }
@@ -352,11 +408,48 @@ export class AiModerationService {
 
       if (text.length < MIN_CONTENT_LENGTH && imageUrls.length === 0) return;
 
-      const result = await analyzeContent(text, imageUrls);
-      if (!result) return;
+      logger.debug('AI moderation: calling analyzeContent', {
+        event: 'ai_moderation.process_start',
+        guildId: message.guild.id,
+        userId: message.author.id,
+        textLength: text.length,
+        imageCount: imageUrls.length
+      });
 
-      if (result.classification === 'safe') return;
-      if (result.confidence < aiConfig.confidenceThreshold) return;
+      const result = await analyzeContent(text, imageUrls);
+
+      if (!result) {
+        logger.debug('AI moderation: analyzeContent returned null, no action taken', {
+          event: 'ai_moderation.no_result',
+          guildId: message.guild.id,
+          userId: message.author.id
+        });
+        return;
+      }
+
+      if (result.classification === 'safe') {
+        logger.debug('AI moderation: message classified as safe, no action taken', {
+          event: 'ai_moderation.safe',
+          guildId: message.guild.id,
+          userId: message.author.id,
+          confidence: result.confidence,
+          reason: result.reason
+        });
+        return;
+      }
+
+      if (result.confidence < aiConfig.confidenceThreshold) {
+        logger.debug('AI moderation: confidence below threshold, no action taken', {
+          event: 'ai_moderation.below_threshold',
+          guildId: message.guild.id,
+          userId: message.author.id,
+          classification: result.classification,
+          confidence: result.confidence,
+          threshold: aiConfig.confidenceThreshold,
+          reason: result.reason
+        });
+        return;
+      }
 
       const action = getActionForClassification(aiConfig, result.classification);
 

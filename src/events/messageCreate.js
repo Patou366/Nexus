@@ -26,9 +26,22 @@ export default {
         handleScamDetection(message, client).catch(err =>
           logger.debug('Error in scam detection:', err)
         ),
-        AiModerationService.processMessage(message, client).catch(err =>
-          logger.debug('Error in AI moderation:', err)
-        ),
+        (async () => {
+          logger.debug('AI moderation: processMessage invoked', {
+            event: 'ai_moderation.invoked',
+            guildId: message.guild.id,
+            userId: message.author.id,
+            channelId: message.channel.id,
+            textLength: message.content?.length ?? 0,
+            attachmentCount: message.attachments?.size ?? 0
+          });
+          await AiModerationService.processMessage(message, client);
+          logger.debug('AI moderation: processMessage completed', {
+            event: 'ai_moderation.completed',
+            guildId: message.guild.id,
+            userId: message.author.id
+          });
+        })().catch(err => logger.debug('Error in AI moderation:', err)),
         handleAfk(message, client).catch(err =>
           logger.debug('Error in AFK handling:', err)
         )
