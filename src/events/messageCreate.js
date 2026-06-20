@@ -9,6 +9,7 @@ import { getLevelingConfig, getUserLevelData } from '../services/leveling.js';
 import { addXp } from '../services/xpSystem.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
 import { RaidDetectionService } from '../services/raidDetectionService.js';
+import { handleScamDetection } from '../services/scamDetectionService.js';
 
 const MESSAGE_XP_RATE_LIMIT_ATTEMPTS = 12;
 const MESSAGE_XP_RATE_LIMIT_WINDOW_MS = 10000;
@@ -20,11 +21,14 @@ export default {
 
       if (message.author.bot || !message.guild) return;
 
-      // Run raid detection and leveling concurrently
+      // Run raid detection, scam detection, and leveling concurrently
       await Promise.all([
         handleLeveling(message, client),
         RaidDetectionService.processMessage(message, client).catch(err =>
           logger.debug('Error in raid detection message processing:', err)
+        ),
+        handleScamDetection(message, client).catch(err =>
+          logger.debug('Error in scam detection:', err)
         )
       ]);
     } catch (error) {
