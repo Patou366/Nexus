@@ -347,19 +347,6 @@ class PostgreSQLDatabase {
                 FOREIGN KEY (user_id) REFERENCES ${pgConfig.tables.users}(id) ON DELETE CASCADE
             )`,
             
-            `CREATE TABLE IF NOT EXISTS ${pgConfig.tables.economy} (
-                guild_id VARCHAR(20),
-                user_id VARCHAR(20),
-                balance BIGINT DEFAULT 0,
-                bank BIGINT DEFAULT 0,
-                data JSONB DEFAULT '{}',
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                PRIMARY KEY (guild_id, user_id),
-                FOREIGN KEY (guild_id) REFERENCES ${pgConfig.tables.guilds}(id) ON DELETE CASCADE,
-                FOREIGN KEY (user_id) REFERENCES ${pgConfig.tables.users}(id) ON DELETE CASCADE
-            )`,
-
             `CREATE TABLE IF NOT EXISTS ${pgConfig.tables.verification_audit} (
                 id SERIAL PRIMARY KEY,
                 guild_id VARCHAR(20) NOT NULL,
@@ -439,7 +426,6 @@ class PostgreSQLDatabase {
             `CREATE INDEX IF NOT EXISTS idx_afk_status_expires_at ON ${pgConfig.tables.afk_status}(expires_at)`,
             `CREATE INDEX IF NOT EXISTS idx_user_levels_guild_id ON ${pgConfig.tables.user_levels}(guild_id)`,
             `CREATE INDEX IF NOT EXISTS idx_user_levels_xp ON ${pgConfig.tables.user_levels}(xp)`,
-            `CREATE INDEX IF NOT EXISTS idx_economy_guild_id ON ${pgConfig.tables.economy}(guild_id)`,
             `CREATE INDEX IF NOT EXISTS idx_verification_audit_guild_id ON ${pgConfig.tables.verification_audit}(guild_id)`,
             `CREATE INDEX IF NOT EXISTS idx_verification_audit_user_id ON ${pgConfig.tables.verification_audit}(user_id)`,
             `CREATE INDEX IF NOT EXISTS idx_verification_audit_created_at ON ${pgConfig.tables.verification_audit}(created_at)`,
@@ -481,7 +467,6 @@ class PostgreSQLDatabase {
                 { name: 'update_welcome_configs_updated_at', table: pgConfig.tables.welcome_configs },
                 { name: 'update_leveling_configs_updated_at', table: pgConfig.tables.leveling_configs },
                 { name: 'update_user_levels_updated_at', table: pgConfig.tables.user_levels },
-                { name: 'update_economy_updated_at', table: pgConfig.tables.economy },
                 { name: 'update_application_roles_updated_at', table: pgConfig.tables.application_roles },
                 { name: 'update_invite_tracking_updated_at', table: pgConfig.tables.invite_tracking },
                 { name: 'update_guild_users_updated_at', table: pgConfig.tables.guild_users },
@@ -806,9 +791,6 @@ class PostgreSQLDatabase {
                 }
                 return { type: 'leveling_data', guildId: parts[1], fullKey: key };
             }
-            if (parts[2] === 'economy' && parts[3]) {
-                return { type: 'economy', guildId: parts[1], userId: parts[3], fullKey: key };
-            }
             if (parts[2] === 'afk' && parts[3]) {
                 return { type: 'afk_status', guildId: parts[1], userId: parts[3], fullKey: key };
             }
@@ -880,21 +862,6 @@ class PostgreSQLDatabase {
                         [parsedKey.guildId, parsedKey.userId]
                     );
                     return userLevelResult.rows.length > 0 ? userLevelResult.rows[0] : defaultValue;
-                
-                case 'economy': {
-                    const economyResult = await this.pool.query(
-                        `SELECT balance, bank, data FROM ${pgConfig.tables.economy} WHERE guild_id = $1 AND user_id = $2`,
-                        [parsedKey.guildId, parsedKey.userId]
-                    );
-                    if (economyResult.rows.length === 0) return defaultValue;
-                    const row = economyResult.rows[0];
-                    // Return the full data blob when available (contains wallet, bank, etc.)
-                    // Fall back to constructing a compatible object from the columns
-                    if (row.data && typeof row.data === 'object' && Object.keys(row.data).length > 0) {
-                        return row.data;
-                    }
-                    return { wallet: row.balance ?? 0, bank: row.bank ?? 0 };
-                }
                 
                 case 'afk_status':
                     const afkResult = await this.pool.query(
@@ -1053,30 +1020,6 @@ class PostgreSQLDatabase {
                     );
                     return true;
                 
-                case 'economy':
-                    await this.pool.query(
-                        `INSERT INTO ${pgConfig.tables.guilds} (id, created_at) 
-                         VALUES ($1, CURRENT_TIMESTAMP) 
-                         ON CONFLICT (id) DO NOTHING`,
-                        [parsedKey.guildId]
-                    );
-                    
-                    await this.pool.query(
-                        `INSERT INTO ${pgConfig.tables.users} (id, created_at) 
-                         VALUES ($1, CURRENT_TIMESTAMP) 
-                         ON CONFLICT (id) DO NOTHING`,
-                        [parsedKey.userId]
-                    );
-                    
-                    await this.pool.query(
-                        `INSERT INTO ${pgConfig.tables.economy} (guild_id, user_id, balance, bank, data, updated_at) 
-                         VALUES ($1, $2, $3, $4, $5, CURRENT_TIMESTAMP) 
-                         ON CONFLICT (guild_id, user_id) DO UPDATE SET 
-                         balance = $3, bank = $4, data = $5, updated_at = CURRENT_TIMESTAMP`,
-                        [parsedKey.guildId, parsedKey.userId, value.wallet ?? value.balance ?? 0, value.bank ?? 0, value]
-                    );
-                    return true;
-                
                 case 'afk_status':
                     await this.pool.query(
                         `INSERT INTO ${pgConfig.tables.guilds} (id, created_at) 
@@ -1203,10 +1146,6 @@ class PostgreSQLDatabase {
                 
                 case 'user_level':
                     await this.pool.query(`DELETE FROM ${pgConfig.tables.user_levels} WHERE guild_id = $1 AND user_id = $2`, [parsedKey.guildId, parsedKey.userId]);
-                    return true;
-                
-                case 'economy':
-                    await this.pool.query(`DELETE FROM ${pgConfig.tables.economy} WHERE guild_id = $1 AND user_id = $2`, [parsedKey.guildId, parsedKey.userId]);
                     return true;
                 
                 case 'afk_status':

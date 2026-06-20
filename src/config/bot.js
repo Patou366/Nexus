@@ -121,7 +121,6 @@ export const botConfig = {
         closed: "#ED4245",
         pending: "#99AAB5",
       },
-      economy: "#F1C40F",
       birthday: "#E91E63",
       moderation: "#9B59B6",
 
@@ -148,52 +147,6 @@ export const botConfig = {
       icon: null,
       url: null,
     },
-  },
-
-  // =========================
-  // ECONOMY SETTINGS
-  // =========================
-  economy: {
-    currency: {
-      // Currency display name.
-      name: "coins",
-      // Plural display name.
-      namePlural: "coins",
-      // Currency symbol shown in balances.
-      symbol: "$",
-    },
-
-    // Starting balance for new users.
-    startingBalance: 0,
-
-    // Maximum bank amount before upgrades (if upgrades are used).
-    baseBankCapacity: 100000,
-
-    // Daily reward amount.
-    dailyAmount: 100,
-
-    // Work command random payout range.
-    workMin: 10,
-    workMax: 100,
-
-    // Beg command random payout range.
-    begMin: 5,
-    begMax: 50,
-
-    // Chance to succeed when robbing (0.4 = 40%).
-    robSuccessRate: 0.4,
-
-    // Jail time after failed rob (milliseconds).
-    // 3600000 = 1 hour.
-    robFailJailTime: 3600000, 
-  },
-
-  // =========================
-  // SHOP SETTINGS
-  // =========================
-  // Add shop defaults here when needed.
-  shop: {
-    
   },
 
   // =========================
@@ -436,7 +389,6 @@ export const botConfig = {
   // Set any feature to `false` to disable it globally.
   features: {
     // Core systems.
-    economy: true,
     leveling: true,
     moderation: true,
     logging: true,

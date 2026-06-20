@@ -19,28 +19,13 @@ const wipedataConfirmHandler = {
 
       
       const dataKeyPatterns = [
-        `economy:${guildId}:${userId}`,
         `level:${guildId}:${userId}`,
         `xp:${guildId}:${userId}`,
-        `inventory:${guildId}:${userId}`,
-        `bank:${guildId}:${userId}`,
-        `wallet:${guildId}:${userId}`,
         `cooldowns:${guildId}:${userId}`,
-        `shop:${guildId}:${userId}`,
-        `shop_data:${guildId}:${userId}`,
         `counter:${guildId}:${userId}`,
         `birthday:${guildId}:${userId}`,
-        `balance:${guildId}:${userId}`,
         `user:${guildId}:${userId}`,
         `leveling:${guildId}:${userId}`,
-        `crimexp:${guildId}:${userId}`,
-        `robxp:${guildId}:${userId}`,
-        `crime_cooldown:${guildId}:${userId}`,
-        `rob_cooldown:${guildId}:${userId}`,
-        `lastDaily:${guildId}:${userId}`,
-        `lastWork:${guildId}:${userId}`,
-        `lastCrime:${guildId}:${userId}`,
-        `lastRob:${guildId}:${userId}`,
       ];
 
       let deletedCount = 0;
@@ -66,7 +51,6 @@ const wipedataConfirmHandler = {
           const searchPrefixes = [
             `${guildId}:${userId}`,
             `${guildId}:`,
-            `economy:${guildId}:`,
             `level:${guildId}:`,
             `xp:${guildId}:`,
             `user:${guildId}:`
@@ -108,7 +92,7 @@ const wipedataConfirmHandler = {
         `✅ **Your data has been successfully wiped!**\n\n` +
         `**Records Deleted:** ${deletedCount}\n\n` +
         `Your account has been reset to default values. You can now start fresh!\n\n` +
-        `*All your economy balance, levels, items, and personal data have been removed.*`;
+        `*All your levels, and personal data have been removed.*`;
 
       await interaction.editReply({
         embeds: [successEmbed(successMessage, '🗑️ Data Wipe Complete')],
