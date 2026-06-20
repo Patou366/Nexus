@@ -65,7 +65,7 @@ const appConfig = {
   api: {
     port: process.env.PORT || 3000,
     cors: {
-      origin: process.env.CORS_ORIGIN?.split(",") || "*",
+      origin: process.env.CORS_ORIGIN?.split(",") || null,
       methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
     },

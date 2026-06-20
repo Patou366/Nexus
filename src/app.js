@@ -108,20 +108,28 @@ class TitanBot extends Client {
     const configuredPort = Number(this.config.api?.port || process.env.PORT || 3000);
     const maxPortRetryAttempts = Number(process.env.PORT_RETRY_ATTEMPTS || 5);
     const host = process.env.WEB_HOST || '0.0.0.0';
-    const corsOrigin = this.config.api?.cors?.origin || '*';
+    const corsOrigin = this.config.api?.cors?.origin;
     
     app.use((req, res, next) => {
-      const allowedOrigins = Array.isArray(corsOrigin) ? corsOrigin : [corsOrigin];
-      const origin = req.headers.origin;
-      
-      if (allowedOrigins.includes('*') || allowedOrigins.includes(origin)) {
-        res.header('Access-Control-Allow-Origin', origin || '*');
+      res.header('X-Content-Type-Options', 'nosniff');
+      res.removeHeader('X-Powered-By');
+
+      if (corsOrigin) {
+        const allowedOrigins = Array.isArray(corsOrigin) ? corsOrigin : [corsOrigin];
+        const origin = req.headers.origin;
+
+        if (allowedOrigins.includes('*')) {
+          res.header('Access-Control-Allow-Origin', '*');
+        } else if (origin && allowedOrigins.includes(origin)) {
+          res.header('Access-Control-Allow-Origin', origin);
+          res.header('Vary', 'Origin');
+        }
+        res.header('Access-Control-Allow-Methods', 'GET, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
       }
-      res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-      
+
       if (req.method === 'OPTIONS') {
-        return res.sendStatus(200);
+        return res.sendStatus(204);
       }
       next();
     });
@@ -154,12 +162,9 @@ class TitanBot extends Client {
       const dbStatus = this.db?.getStatus?.() || { isDegraded: 'unknown' };
       const status = {
         status: 'healthy',
-        timestamp: new Date().toISOString(),
-        uptime: process.uptime(),
         database: {
           connected: dbStatus.connectionType !== 'none',
-          degraded: dbStatus.isDegraded,
-          type: dbStatus.connectionType
+          degraded: dbStatus.isDegraded
         }
       };
       res.status(200).json(status);
