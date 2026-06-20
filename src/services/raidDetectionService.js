@@ -1,3 +1,4 @@
+import { AuditLogEvent, PermissionsBitField } from 'discord.js';
 import { logger } from '../utils/logger.js';
 import { QuarantineService } from './quarantineService.js';
 
@@ -19,6 +20,9 @@ const ACCOUNT_AGE_THRESHOLD_DAYS = 4;     // < 4 days old
 const NAME_SIMILARITY_THRESHOLD = 0.80;   // 80% name similarity
 const INVITE_DOMINANCE_THRESHOLD = 0.80;  // 80% same invite
 
+const CHANNEL_DELETE_WINDOW_MS = 5000;    // 5 seconds
+const CHANNEL_DELETE_THRESHOLD = 4;       // 4 channels deleted -> kick
+
 const DEFAULT_AVATAR_URL = 'https://cdn.discordapp.com/embed/avatars/';
 
 const guildJoinWindows = new Map();
@@ -26,6 +30,14 @@ const guildSpamWindows = new Map();
 const guildQuarantineLock = new Map();
 const guildInviteCache = new Map();
 const guildNamePatternLock = new Map();
+const guildChannelDeleteWindows = new Map();
+
+function getChannelDeleteWindow(guildId) {
+  if (!guildChannelDeleteWindows.has(guildId)) {
+    guildChannelDeleteWindows.set(guildId, new Map());
+  }
+  return guildChannelDeleteWindows.get(guildId);
+}
 
 function getGuildJoinWindow(guildId) {
   if (!guildJoinWindows.has(guildId)) {
@@ -543,6 +555,135 @@ export class RaidDetectionService {
   }
 
   /**
+   * Process a channel deletion for anti-nuke protection.
+   * If a single user deletes CHANNEL_DELETE_THRESHOLD channels within
+   * CHANNEL_DELETE_WINDOW_MS, they are automatically kicked.
+   * @param {GuildChannel} channel
+   * @param {Client} client
+   */
+  static async processChannelDelete(channel, client) {
+    try {
+      const guild = channel.guild;
+      if (!guild) return;
+
+      const guildId = guild.id;
+      const config = await this.getRaidConfig(client, guildId);
+      if (!config.enabled) return;
+
+      // We need View Audit Log to know who deleted the channel
+      const me = guild.members.me;
+      if (!me || !me.permissions.has(PermissionsBitField.Flags.ViewAuditLog)) {
+        logger.debug(`Anti-nuke: missing ViewAuditLog permission in guild ${guildId}`);
+        return;
+      }
+
+      // Identify the executor from the audit log
+      let executorId = null;
+      try {
+        const logs = await guild.fetchAuditLogs({
+          type: AuditLogEvent.ChannelDelete,
+          limit: 5
+        });
+        const entry =
+          logs.entries.find(e => e.target?.id === channel.id) || logs.entries.first();
+
+        // Only trust recent entries to avoid matching a stale deletion
+        if (entry && Date.now() - entry.createdTimestamp < CHANNEL_DELETE_WINDOW_MS + 2000) {
+          executorId = entry.executor?.id || null;
+        }
+      } catch (err) {
+        logger.debug('Anti-nuke: could not fetch audit logs:', err.message);
+        return;
+      }
+
+      if (!executorId) return;
+
+      // Never act on the bot itself or the server owner
+      if (executorId === client.user.id) return;
+      if (executorId === guild.ownerId) return;
+
+      // Track deletions within the rolling window
+      const now = Date.now();
+      const guildWindow = getChannelDeleteWindow(guildId);
+      const timestamps = (guildWindow.get(executorId) || []).filter(
+        ts => now - ts < CHANNEL_DELETE_WINDOW_MS
+      );
+      timestamps.push(now);
+      guildWindow.set(executorId, timestamps);
+
+      if (timestamps.length < CHANNEL_DELETE_THRESHOLD) return;
+
+      // Threshold reached — reset to prevent repeat triggers, then kick
+      guildWindow.set(executorId, []);
+
+      const member = await guild.members.fetch(executorId).catch(() => null);
+      const kickReason = `Anti-nuke: deleted ${timestamps.length} channels in under ${CHANNEL_DELETE_WINDOW_MS / 1000}s`;
+
+      let kicked = false;
+      if (member && member.kickable) {
+        await member.kick(kickReason).catch(err => {
+          logger.warn(`Anti-nuke: failed to kick ${executorId}:`, err.message);
+        });
+        kicked = true;
+      } else {
+        logger.warn(`Anti-nuke: member ${executorId} is not kickable in guild ${guildId}`);
+      }
+
+      logger.warn(`Anti-nuke: mass channel deletion in ${guild.name}`, {
+        event: 'raid.channel_nuke',
+        guildId,
+        executorId,
+        count: timestamps.length,
+        kicked
+      });
+
+      await this.sendChannelNukeAlert({
+        guild,
+        config,
+        executorId,
+        count: timestamps.length,
+        kicked
+      });
+    } catch (error) {
+      logger.error('Error in raid detection channel delete:', error);
+    }
+  }
+
+  /**
+   * Send a staff alert when a channel-nuke is detected.
+   */
+  static async sendChannelNukeAlert({ guild, config, executorId, count, kicked }) {
+    try {
+      if (!config.notificationChannelId) return;
+      const channel = guild.channels.cache.get(config.notificationChannelId);
+      if (!channel?.isTextBased()) return;
+
+      const { createEmbed } = await import('../utils/embeds.js');
+      const embed = createEmbed({
+        title: '🛡️ Anti-Nuke Triggered',
+        description: kicked
+          ? `<@${executorId}> deleted **${count} channels** in under ${CHANNEL_DELETE_WINDOW_MS / 1000} seconds and was automatically **kicked**.`
+          : `<@${executorId}> deleted **${count} channels** in under ${CHANNEL_DELETE_WINDOW_MS / 1000} seconds. I could **not** kick them — please check my role position and permissions.`,
+        color: 'warning',
+        fields: [
+          { name: 'User', value: `<@${executorId}> (${executorId})`, inline: true },
+          { name: 'Channels deleted', value: `${count}`, inline: true },
+          { name: 'Action', value: kicked ? 'Kicked' : 'Kick failed', inline: true }
+        ]
+      });
+
+      const pingContent = config.alertRoleId ? `<@&${config.alertRoleId}>` : null;
+      await channel.send({
+        content: pingContent,
+        embeds: [embed],
+        allowedMentions: { roles: config.alertRoleId ? [config.alertRoleId] : [] }
+      });
+    } catch (error) {
+      logger.error('Error sending channel-nuke alert:', error);
+    }
+  }
+
+  /**
    * Initialize invite cache for a guild (call on startup/ready)
    */
   static async initializeInviteCache(guild) {
@@ -608,5 +749,6 @@ export class RaidDetectionService {
     guildSpamWindows.delete(guildId);
     guildQuarantineLock.delete(guildId);
     guildNamePatternLock.delete(guildId);
+    guildChannelDeleteWindows.delete(guildId);
   }
 }
