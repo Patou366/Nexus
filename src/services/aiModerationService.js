@@ -1,8 +1,9 @@
-import OpenAI from 'openai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import { logger } from '../utils/logger.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
 import { QuarantineService } from './quarantineService.js';
 import { createEmbed } from '../utils/embeds.js';
+import axios from 'axios';
 
 const AI_RATE_LIMIT_KEY_PREFIX = 'ai-mod';
 const AI_RATE_LIMIT_ATTEMPTS = 20;
@@ -23,55 +24,81 @@ Guidelines:
 - Be conservative: only flag content you are confident is malicious (confidence >= 0.75)
 - Short casual messages like "hi", "lol", "gg" are ALWAYS safe
 - Do not flag messages for being rude or off-topic — only flag actual security threats
-- Images: if an image URL is provided, analyze it for scam screenshots, phishing pages, shock/gore content, or raid imagery`;
+- Images: if an image is provided, analyze it for scam screenshots, phishing pages, shock/gore content, or raid imagery`;
 
-let openaiClient = null;
+let geminiClient = null;
 
-function getOpenAIClient() {
-  if (openaiClient) return openaiClient;
-  const apiKey = process.env.OPENAI_API_KEY;
+function getGeminiClient() {
+  if (geminiClient) return geminiClient;
+  const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
-  openaiClient = new OpenAI({ apiKey });
-  return openaiClient;
+  geminiClient = new GoogleGenerativeAI(apiKey);
+  return geminiClient;
 }
 
 /**
- * Analyze message text and/or images using OpenAI
+ * Download an image and convert it to a Gemini-compatible inline data part
+ * @param {string} url
+ * @returns {Promise<{inlineData: {data: string, mimeType: string}} | null>}
+ */
+async function fetchImageAsInlineData(url) {
+  try {
+    const response = await axios.get(url, {
+      responseType: 'arraybuffer',
+      timeout: 10000,
+      maxContentLength: 4 * 1024 * 1024
+    });
+    const mimeType = response.headers['content-type'] || 'image/png';
+    const base64 = Buffer.from(response.data).toString('base64');
+    return { inlineData: { data: base64, mimeType } };
+  } catch (error) {
+    logger.debug(`Failed to fetch image for AI analysis: ${error.message}`);
+    return null;
+  }
+}
+
+/**
+ * Analyze message text and/or images using Google Gemini
  * @param {string} text - Message text content
  * @param {string[]} imageUrls - Array of image URLs from attachments
  * @returns {Promise<{classification: string, confidence: number, reason: string} | null>}
  */
 async function analyzeContent(text, imageUrls = []) {
-  const client = getOpenAIClient();
+  const client = getGeminiClient();
   if (!client) return null;
 
-  const contentParts = [];
+  const parts = [];
 
   if (text && text.length >= MIN_CONTENT_LENGTH) {
-    contentParts.push({ type: 'text', text: `Message content:\n${text.slice(0, 2000)}` });
+    parts.push({ text: `Message content:\n${text.slice(0, 2000)}` });
   }
 
   for (const url of imageUrls.slice(0, 3)) {
-    contentParts.push({ type: 'image_url', image_url: { url, detail: 'low' } });
+    const imagePart = await fetchImageAsInlineData(url);
+    if (imagePart) parts.push(imagePart);
   }
 
-  if (contentParts.length === 0) return null;
+  if (parts.length === 0) return null;
 
   try {
-    const response = await client.chat.completions.create({
-      model: imageUrls.length > 0 ? 'gpt-4o-mini' : 'gpt-4o-mini',
-      messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: contentParts }
-      ],
-      max_tokens: 150,
-      temperature: 0.1
+    const model = client.getGenerativeModel({
+      model: 'gemini-2.0-flash',
+      systemInstruction: SYSTEM_PROMPT
     });
 
-    const raw = response.choices?.[0]?.message?.content?.trim();
+    const result = await model.generateContent({
+      contents: [{ role: 'user', parts }],
+      generationConfig: {
+        maxOutputTokens: 150,
+        temperature: 0.1
+      }
+    });
+
+    const raw = result.response?.text()?.trim();
     if (!raw) return null;
 
-    const parsed = JSON.parse(raw);
+    const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
+    const parsed = JSON.parse(cleaned);
     if (!parsed.classification || typeof parsed.confidence !== 'number') return null;
 
     return {
@@ -107,9 +134,6 @@ async function executeAction(action, message, client, aiResult, aiConfig) {
 
   switch (action) {
     case 'quarantine': {
-      const { RaidDetectionService } = await import('./raidDetectionService.js');
-      const config = await RaidDetectionService.getRaidConfig(client, guild.id);
-
       await QuarantineService.triggerQuarantine({
         guild,
         client,
@@ -300,8 +324,8 @@ export class AiModerationService {
       const aiConfig = await this.getAiConfig(client, message.guild.id);
       if (!aiConfig.enabled) return;
 
-      if (!process.env.OPENAI_API_KEY) {
-        logger.debug('AI moderation enabled but OPENAI_API_KEY not set');
+      if (!process.env.GEMINI_API_KEY) {
+        logger.debug('AI moderation enabled but GEMINI_API_KEY not set');
         return;
       }
 

@@ -267,8 +267,8 @@ export default {
         if (confidence !== null) details.push(`**Confidence Threshold:** ${Math.round(confidence * 100)}%`);
         if (alertChannel) details.push(`**Alert Channel:** ${alertChannel}`);
 
-        if (enabled && !process.env.OPENAI_API_KEY) {
-          details.push('\n⚠️ **Warning:** `OPENAI_API_KEY` environment variable is not set. AI moderation will not work until it is configured.\n⚠️ **Advertencia:** La variable de entorno `OPENAI_API_KEY` no está configurada.');
+        if (enabled && !process.env.GEMINI_API_KEY) {
+          details.push('\n⚠️ **Warning:** `GEMINI_API_KEY` environment variable is not set. AI moderation will not work until it is configured.\n⚠️ **Advertencia:** La variable de entorno `GEMINI_API_KEY` no está configurada.');
         }
 
         await InteractionHelper.universalReply(interaction, {
