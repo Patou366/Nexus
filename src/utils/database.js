@@ -711,10 +711,6 @@ export async function incrementTicketCounter(guildId) {
 
 
 
-export function getEconomyKey(guildId, userId) {
-    return `guild:${guildId}:economy:${userId}`;
-}
-
 
 
 

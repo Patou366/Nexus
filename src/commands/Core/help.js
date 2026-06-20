@@ -24,7 +24,6 @@ const HELP_MENU_TIMEOUT_MS = 5 * 60 * 1000;
 const CATEGORY_ICONS = {
     Core: "ℹ️",
     Moderation: "🛡️",
-    Economy: "💰",
     Fun: "🎮",
     Leveling: "📊",
     Utility: "🔧",
@@ -75,7 +74,7 @@ export async function createInitialHelpMenu(client) {
     const botName = client?.user?.username || "Bot";
     const embed = createEmbed({
         title: `🤖 ${botName} Help Center / Centro de Ayuda`,
-        description: "Your all-in-one Discord companion for moderation, economy, fun, and server management. / Tu companero todo en uno de Discord para moderacion, economia, diversion y gestion del servidor.",
+        description: "Your all-in-one Discord companion for moderation, fun, and server management. / Tu companero todo en uno de Discord para moderacion, diversion y gestion del servidor.",
         color: 'primary'
     });
 
