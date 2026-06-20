@@ -16,7 +16,7 @@ export default {
         .addChannelOption(option =>
             option
                 .setName('channel')
-                .setDescription('Channel where milestone announcements will be posted / Canal donde se publicaran los anuncios de hitos')
+                .setDescription('Milestone announcement channel / Canal para anuncios de hitos')
                 .addChannelTypes(ChannelType.GuildText)
                 .setRequired(true)
         )
