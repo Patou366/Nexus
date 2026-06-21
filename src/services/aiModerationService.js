@@ -6,7 +6,7 @@ import { createEmbed } from '../utils/embeds.js';
 import axios from 'axios';
 
 const AI_RATE_LIMIT_KEY_PREFIX = 'ai-mod';
-const AI_RATE_LIMIT_ATTEMPTS = 20;
+const AI_RATE_LIMIT_ATTEMPTS = 14;
 const AI_RATE_LIMIT_WINDOW_MS = 60000;
 
 const MIN_CONTENT_LENGTH = 10;
@@ -103,7 +103,7 @@ async function analyzeContent(text, imageUrls = []) {
 
   try {
     const model = client.getGenerativeModel({
-      model: 'gemini-2.0-flash',
+      model: 'gemini-3-flash-preview',
       systemInstruction: SYSTEM_PROMPT
     });
 
