@@ -47,7 +47,9 @@ export default {
       await interaction.reply({
         content: '❌ An error occurred while processing your request.',
         ephemeral: true
-      }).catch(() => {});
+      }).catch(replyError => {
+        logger.warn('Failed to send error reply in logging button handler:', replyError.message);
+      });
     }
   }
 };

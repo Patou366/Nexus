@@ -471,9 +471,10 @@ export async function checkGiveaways(client) {
         giveaway.endedAt = new Date().toISOString();
         
         // Update in database with SQL
-        const markedSuccess = await markGiveawayEnded(client, giveawayId, giveaway);
-        if (!markedSuccess) {
-          logger.warn(`Failed to mark giveaway ${messageId} as ended in database`);
+        try {
+          await markGiveawayEnded(client, giveawayId, giveaway);
+        } catch (markError) {
+          logger.warn(`Failed to mark giveaway ${messageId} as ended in database:`, markError.message);
         }
 
         if (winners.length > 0) {
@@ -511,7 +512,7 @@ export async function checkGiveaways(client) {
               }
             });
           } catch (error) {
-            logger.debug('Error logging giveaway winner:', error);
+            logger.warn('Error logging giveaway winner:', error);
           }
         } else {
           await channel.send({ content: `The giveaway for **${giveaway.prize}** has ended with no valid entries.` });

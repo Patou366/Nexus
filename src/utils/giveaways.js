@@ -73,8 +73,7 @@ export async function getGuildGiveaways(client, guildId) {
 export async function saveGiveaway(client, guildId, giveawayData) {
     try {
         if (!client.db) {
-            logger.warn('Database not available for saveGiveaway');
-            return false;
+            throw new Error('Database not available for saveGiveaway');
         }
 
         if (!giveawayData || !giveawayData.messageId) {
@@ -99,10 +98,7 @@ export async function saveGiveaway(client, guildId, giveawayData) {
         return true;
     } catch (error) {
         logger.error(`Error saving giveaway in guild ${guildId}:`, error);
-        if (error instanceof TitanBotError) {
-            throw error;
-        }
-        return false;
+        throw error;
     }
 }
 
@@ -116,8 +112,7 @@ export async function saveGiveaway(client, guildId, giveawayData) {
 export async function deleteGiveaway(client, guildId, messageId) {
     try {
         if (!client.db) {
-            logger.warn('Database not available for deleteGiveaway');
-            return false;
+            throw new Error('Database not available for deleteGiveaway');
         }
 
         if (!messageId) {
@@ -147,10 +142,7 @@ export async function deleteGiveaway(client, guildId, messageId) {
         return true;
     } catch (error) {
         logger.error(`Error deleting giveaway ${messageId} in guild ${guildId}:`, error);
-        if (error instanceof TitanBotError) {
-            throw error;
-        }
-        return false;
+        throw error;
     }
 }
 

@@ -95,7 +95,7 @@ export async function addXp(client, guild, member, xpToAdd) {
             }
           });
         } catch (logError) {
-          logger.debug('Failed to log leveling event:', logError.message);
+          logger.warn('Failed to log leveling event:', logError.message);
         }
       }
       

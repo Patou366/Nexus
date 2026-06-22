@@ -225,7 +225,7 @@ export const giveawayEndHandler = {
                     }
                 });
             } catch (logError) {
-                logger.debug('Error logging giveaway end event:', logError);
+                logger.warn('Error logging giveaway end event:', logError);
             }
 
             await interaction.reply({
@@ -357,7 +357,7 @@ export const giveawayRerollHandler = {
                     }
                 });
             } catch (logError) {
-                logger.debug('Error logging giveaway reroll event:', logError);
+                logger.warn('Error logging giveaway reroll event:', logError);
             }
 
             await interaction.reply({

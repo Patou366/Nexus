@@ -107,7 +107,7 @@ export default {
                 }
             });
         } catch (error) {
-            logger.debug('Error logging member leave:', error);
+            logger.warn('Error logging member leave:', error);
         }
         
         
@@ -119,7 +119,7 @@ export default {
                 }
             }
         } catch (error) {
-            logger.debug('Error updating counters on member leave:', error);
+            logger.warn('Error updating counters on member leave:', error);
         }
         
         // Backup and remove birthday data when a member leaves
@@ -134,7 +134,7 @@ export default {
                 logger.debug(`Birthday backed up and removed for user ${user.id} in guild ${guild.id}`);
             }
         } catch (error) {
-            logger.debug('Error handling birthday on member leave:', error);
+            logger.warn('Error handling birthday on member leave:', error);
         }
         
         // Remove all pending applications when a member leaves
@@ -147,7 +147,7 @@ export default {
                 logger.debug(`Removed ${userApplications.length} applications for user ${user.id} in guild ${guild.id}`);
             }
         } catch (error) {
-            logger.debug('Error handling applications on member leave:', error);
+            logger.warn('Error handling applications on member leave:', error);
         }
 
         // Remove leveling data when a member leaves
@@ -155,7 +155,7 @@ export default {
             await deleteUserLevelData(member.client, guild.id, user.id);
             logger.debug(`Removed leveling data for user ${user.id} in guild ${guild.id}`);
         } catch (error) {
-            logger.debug('Error handling leveling data on member leave:', error);
+            logger.warn('Error handling leveling data on member leave:', error);
         }
         
     } catch (error) {

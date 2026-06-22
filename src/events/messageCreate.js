@@ -21,10 +21,10 @@ export default {
       await Promise.all([
         handleLeveling(message, client),
         RaidDetectionService.processMessage(message, client).catch(err =>
-          logger.debug('Error in raid detection message processing:', err)
+          logger.warn('Error in raid detection message processing:', err)
         ),
         handleScamDetection(message, client).catch(err =>
-          logger.debug('Error in scam detection:', err)
+          logger.warn('Error in scam detection:', err)
         ),
         (async () => {
           logger.debug('AI moderation: processMessage invoked', {
@@ -43,7 +43,7 @@ export default {
           });
         })().catch(err => logger.debug('Error in AI moderation:', err)),
         handleAfk(message, client).catch(err =>
-          logger.debug('Error in AFK handling:', err)
+          logger.warn('Error in AFK handling:', err)
         )
       ]);
     } catch (error) {
@@ -127,7 +127,9 @@ async function handleAfk(message, client) {
       }).catch(() => null);
 
       if (backReply) {
-        setTimeout(() => backReply.delete().catch(() => {}), 10000);
+        setTimeout(() => backReply.delete().catch(err => {
+          logger.warn('Failed to auto-delete AFK welcome-back message:', err.message);
+        }), 10000);
       }
     }
 
@@ -154,6 +156,6 @@ async function handleAfk(message, client) {
       }
     }
   } catch (error) {
-    logger.debug('Error handling AFK for message:', error);
+    logger.warn('Error handling AFK for message:', error);
   }
 }

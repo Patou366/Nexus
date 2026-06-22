@@ -213,7 +213,9 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
       components: [row] 
     });
 
-    await ticketMessage.pin().catch(() => {});
+    await ticketMessage.pin().catch(err => {
+      logger.warn(`Failed to pin ticket message in channel ${channel.id}:`, err.message);
+    });
     
     await logTicketEvent({
       client: guild.client,
