@@ -16,6 +16,163 @@ import { BotConfig } from '../config/bot.js';
 import { ensureTypedServiceError } from '../utils/serviceErrorBoundary.js';
 
 
+const LOCALES = {
+  en: {
+    ticketCreated: 'Thank you for creating a ticket!',
+    reason: 'Reason',
+    priority: 'Priority',
+    type: 'Type',
+    status: 'Status',
+    claimedBy: 'Claimed By',
+    created: 'Created',
+    unclaimed: 'Unclaimed',
+    open: 'Open',
+    closed: 'Closed',
+    ticketClosed: 'Ticket Closed',
+    ticketClaimed: 'Ticket Claimed',
+    ticketUnclaimed: 'Ticket Unclaimed',
+    ticketReopened: 'Ticket Reopened',
+    ticketDeleted: 'Ticket Deleted',
+    ticketCreatedTitle: 'Ticket',
+    yourTicketClosed: 'Your Ticket Has Been Closed',
+    closeReason: 'Reason',
+    closedBy: 'Closed by',
+    closedAt: 'Closed at',
+    resolutionTime: 'Resolution Time',
+    thankYou: 'Thank you for using our support system! If you have any further questions, feel free to create a new ticket.',
+    howWasExperience: 'How was your support experience?',
+    feedbackDescription: "We'd love to know how we did with this ticket. Select a rating below!",
+    feedbackHelps: 'Your feedback helps us improve.',
+    noThanks: 'No thanks',
+    willAssist: 'has claimed this ticket and will be assisting you!',
+    staffMember: 'Staff Member',
+    nowAvailable: 'is now available for other staff to claim.',
+    hasUnclaimed: 'has unclaimed this ticket.',
+    hasReopened: 'has reopened this ticket!',
+    staffNoteAdded: 'Staff Note Added',
+    internalNote: 'Internal (staff only)',
+    visibleToCreator: 'Visible to ticket creator',
+    addedBy: 'Added By',
+    addedAt: 'Added At',
+    visibility: 'Visibility',
+    nowWatching: 'Now Watching Ticket',
+    watchingDescription: 'is now watching this ticket and will receive notifications for activity.',
+    stoppedWatching: 'Stopped Watching Ticket',
+    noLongerWatching: 'is no longer watching this ticket.',
+    tagAdded: 'Tag Added',
+    tagRemoved: 'Tag Removed',
+    currentTags: 'Current Tags',
+    priorityUpdated: 'Priority Updated',
+    priorityChangedTo: 'Ticket priority changed to',
+    updatedBy: 'Updated by',
+    previous: 'Previous',
+    new: 'New',
+    autoCloseWarning: 'This ticket will close in 24 hours due to inactivity',
+    autoCloseWarningEs: 'Este ticket se cerrara en 24 horas por inactividad',
+    autoClosed: 'Automatically closed due to inactivity',
+    autoClosedEs: 'Cerrado automaticamente por inactividad',
+    hours: 'hours',
+    hoursEs: 'horas',
+    dmSent: 'A DM has been sent to the ticket creator.',
+    maxTicketsReached: 'You have reached the maximum number of open tickets',
+    closeExisting: 'Please close your existing tickets before creating a new one.',
+    notATicket: 'This is not a ticket channel',
+    alreadyClaimed: 'This ticket is already claimed by',
+    notClaimed: 'This ticket is not currently claimed',
+    notClosed: 'This ticket is not currently closed',
+    noNotes: 'No notes found for this ticket',
+    noteNotFound: 'Note not found',
+    alreadyWatching: 'You are already watching this ticket',
+    notWatching: 'You are not watching this ticket',
+    tagExists: 'already exists on this ticket',
+    tagNotFound: 'does not exist on this ticket',
+    noTags: 'This ticket has no tags',
+    ticketUpdate: 'Ticket Update',
+    minutes: 'minutes',
+  },
+  es: {
+    ticketCreated: 'Gracias por crear un ticket!',
+    reason: 'Razon',
+    priority: 'Prioridad',
+    type: 'Tipo',
+    status: 'Estado',
+    claimedBy: 'Reclamado por',
+    created: 'Creado',
+    unclaimed: 'Sin reclamar',
+    open: 'Abierto',
+    closed: 'Cerrado',
+    ticketClosed: 'Ticket Cerrado',
+    ticketClaimed: 'Ticket Reclamado',
+    ticketUnclaimed: 'Ticket No Reclamado',
+    ticketReopened: 'Ticket Reabierto',
+    ticketDeleted: 'Ticket Eliminado',
+    ticketCreatedTitle: 'Ticket',
+    yourTicketClosed: 'Tu Ticket Ha Sido Cerrado',
+    closeReason: 'Razon',
+    closedBy: 'Cerrado por',
+    closedAt: 'Cerrado el',
+    resolutionTime: 'Tiempo de resolucion',
+    thankYou: 'Gracias por usar nuestro sistema de soporte! Si tienes mas preguntas, no dudes en crear un nuevo ticket.',
+    howWasExperience: 'Como fue tu experiencia de soporte?',
+    feedbackDescription: 'Nos encantaria saber como lo hicimos con este ticket. Selecciona una calificacion abajo!',
+    feedbackHelps: 'Tu retroalimentacion nos ayuda a mejorar.',
+    noThanks: 'No, gracias',
+    willAssist: 'ha reclamado este ticket y te ayudara!',
+    staffMember: 'Miembro del Staff',
+    nowAvailable: 'ahora esta disponible para que otro staff lo reclame.',
+    hasUnclaimed: 'ha dejado de reclamar este ticket.',
+    hasReopened: 'ha reabierto este ticket!',
+    staffNoteAdded: 'Nota de Staff Agregada',
+    internalNote: 'Interno (solo staff)',
+    visibleToCreator: 'Visible para el creador del ticket',
+    addedBy: 'Agregado por',
+    addedAt: 'Agregado el',
+    visibility: 'Visibilidad',
+    nowWatching: 'Ahora Observando Ticket',
+    watchingDescription: 'ahora esta observando este ticket y recibira notificaciones de actividad.',
+    stoppedWatching: 'Dejo de Observar Ticket',
+    noLongerWatching: 'ya no esta observando este ticket.',
+    tagAdded: 'Etiqueta Agregada',
+    tagRemoved: 'Etiqueta Eliminada',
+    currentTags: 'Etiquetas Actuales',
+    priorityUpdated: 'Prioridad Actualizada',
+    priorityChangedTo: 'Prioridad del ticket cambiada a',
+    updatedBy: 'Actualizado por',
+    previous: 'Anterior',
+    new: 'Nuevo',
+    autoCloseWarning: 'Este ticket se cerrara en 24 horas por inactividad',
+    autoCloseWarningEs: 'Este ticket se cerrara en 24 horas por inactividad',
+    autoClosed: 'Cerrado automaticamente por inactividad',
+    autoClosedEs: 'Cerrado automaticamente por inactividad',
+    hours: 'horas',
+    hoursEs: 'horas',
+    dmSent: 'Se ha enviado un mensaje privado al creador del ticket.',
+    maxTicketsReached: 'Has alcanzado el maximo de tickets abiertos',
+    closeExisting: 'Por favor cierra tus tickets existentes antes de crear uno nuevo.',
+    notATicket: 'Este no es un canal de ticket',
+    alreadyClaimed: 'Este ticket ya esta reclamado por',
+    notClaimed: 'Este ticket no esta reclamado actualmente',
+    notClosed: 'Este ticket no esta cerrado actualmente',
+    noNotes: 'No se encontraron notas para este ticket',
+    noteNotFound: 'Nota no encontrada',
+    alreadyWatching: 'Ya estas observando este ticket',
+    notWatching: 'No estas observando este ticket',
+    tagExists: 'ya existe en este ticket',
+    tagNotFound: 'no existe en este ticket',
+    noTags: 'Este ticket no tiene etiquetas',
+    ticketUpdate: 'Actualizacion del Ticket',
+    minutes: 'minutos',
+  }
+};
+
+function getLocale(locale = 'en') {
+  return LOCALES[locale] || LOCALES.en;
+}
+
+function getGuildLocale(config) {
+  return config.locale || config.language || 'en';
+}
+
 function getPriorityMap() {
   const priorities = BotConfig.tickets?.priorities || {
     none: { emoji: "⚪", color: "#95A5A6", label: "None" },
@@ -40,6 +197,8 @@ function getPriorityMap() {
 const PRIORITY_MAP = getPriorityMap();
 const TICKET_DELETE_DELAY_MS = 3000;
 const TICKET_DELETE_DELAY_SECONDS = Math.floor(TICKET_DELETE_DELAY_MS / 1000);
+const AUTO_CLOSE_WARNING_HOURS = 24;
+const AUTO_CLOSE_DEFAULT_THRESHOLD_HOURS = 72;
 
 const DEFAULT_TAGS = ['bug', 'feature', 'billing', 'general', 'technical', 'urgent'];
 
@@ -69,6 +228,7 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
   try {
     const config = await getGuildConfig(guild.client, guild.id);
     const ticketConfig = config.tickets || {};
+    const locale = getLocale(getGuildLocale(config));
 
     const maxTicketsPerUser = config.maxTicketsPerUser ?? 3;
     const currentTicketCount = await getUserTicketCount(guild.id, member.id);
@@ -76,7 +236,7 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
     if (currentTicketCount >= maxTicketsPerUser) {
       return {
         success: false,
-        error: `You have reached the maximum number of open tickets (${maxTicketsPerUser}). Please close your existing tickets before creating a new one.`
+        error: `${locale.maxTicketsReached} (${maxTicketsPerUser}). ${locale.closeExisting}`
       };
     }
 
@@ -166,16 +326,16 @@ export async function createTicket(guild, member, categoryId, reason = 'No reaso
     await saveTicketData(guild.id, channel.id, ticketData);
 
     const priorityInfo = PRIORITY_MAP[priority] || PRIORITY_MAP.none;
-    const typeDisplay = ticketType ? `\n**Type:** ${ticketType}` : '';
+    const typeDisplay = ticketType ? `\n**${locale.type}:** ${ticketType}` : '';
 
     const embed = createEmbed({
-      title: `🎫 Ticket #${ticketNumber}`,
-      description: `${member.toString()}, thank you for creating a ticket!\n\n**Reason:** ${reason}\n**Priority:** ${priorityInfo.emoji} ${priorityInfo.label}${typeDisplay}`,
+      title: `🎫 ${locale.ticketCreatedTitle} #${ticketNumber}`,
+      description: `${member.toString()}, ${locale.ticketCreated}\n\n**${locale.reason}:** ${reason}\n**${locale.priority}:** ${priorityInfo.emoji} ${priorityInfo.label}${typeDisplay}`,
       color: priorityInfo.color,
       fields: [
-        { name: '📊 Status', value: '🟢 Open', inline: true },
-        { name: '👤 Claimed By', value: 'Unclaimed', inline: true },
-        { name: '📅 Created', value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true },
+        { name: `📊 ${locale.status}`, value: `🟢 ${locale.open}`, inline: true },
+        { name: `👤 ${locale.claimedBy}`, value: locale.unclaimed, inline: true },
+        { name: `📅 ${locale.created}`, value: `<t:${Math.floor(Date.now() / 1000)}:R>`, inline: true },
       ],
       footer: { text: `Ticket ID: ${channel.id}` },
       thumbnail: member.displayAvatarURL ? { url: member.displayAvatarURL({ size: 64 }) } : undefined,
@@ -266,6 +426,7 @@ export async function closeTicket(channel, closer, reason = 'No reason provided'
     }
 
     const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
     const dmOnClose = config.dmOnClose !== false;
     const closedCategoryId = config.ticketClosedCategoryId || null;
     let movedToClosedCategory = false;
@@ -301,12 +462,12 @@ export async function closeTicket(channel, closer, reason = 'No reason provided'
             ? Math.floor((Date.now() - new Date(ticketData.claimedAt).getTime()) / 60000)
             : null;
           const resolutionTimeDisplay = resolutionTime !== null
-            ? `\n**Resolution Time:** ${resolutionTime} minutes`
+            ? `\n**${locale.resolutionTime}:** ${resolutionTime} ${locale.minutes}`
             : '';
 
           const dmEmbed = createEmbed({
-            title: '🎫 Your Ticket Has Been Closed',
-            description: `Your ticket **#${channel.name}** has been closed.\n\n**Reason:** ${reason}\n**Closed by:** ${closer.tag}${resolutionTimeDisplay}\n**Closed at:** <t:${Math.floor(Date.now() / 1000)}:F>\n\nThank you for using our support system! If you have any further questions, feel free to create a new ticket.`,
+            title: `🎫 ${locale.yourTicketClosed}`,
+            description: `${locale.ticketCreatedTitle} **#${channel.name}** ${locale.closed}.\n\n**${locale.closeReason}:** ${reason}\n**${locale.closedBy}:** ${closer.tag}${resolutionTimeDisplay}\n**${locale.closedAt}:** <t:${Math.floor(Date.now() / 1000)}:F>\n\n${locale.thankYou}`,
             color: '#e74c3c',
             footer: { text: `Ticket ID: ${ticketData.id}` },
             thumbnail: closer.displayAvatarURL ? { url: closer.displayAvatarURL({ size: 64 }) } : undefined,
@@ -316,10 +477,10 @@ export async function closeTicket(channel, closer, reason = 'No reason provided'
 
           try {
             const feedbackEmbed = createEmbed({
-              title: '⭐ How was your support experience?',
-              description: `We'd love to know how we did with ticket **#${channel.name}**.\nSelect a rating below — it only takes a second!`,
+              title: `⭐ ${locale.howWasExperience}`,
+              description: `${locale.feedbackDescription}`,
               color: '#F1C40F',
-              footer: { text: 'Your feedback helps us improve.' },
+              footer: { text: locale.feedbackHelps },
             });
 
             const base = `ticket_feedback:${channel.guild.id}:${channel.id}`;
@@ -333,7 +494,7 @@ export async function closeTicket(channel, closer, reason = 'No reason provided'
             const declineRow = new ActionRowBuilder().addComponents(
               new ButtonBuilder()
                 .setCustomId(`ticket_feedback_decline:${channel.guild.id}:${channel.id}`)
-                .setLabel('No thanks')
+                .setLabel(locale.noThanks)
                 .setStyle(ButtonStyle.Secondary),
             );
 
@@ -401,10 +562,10 @@ components: []
     }
 
     const closeEmbed = createEmbed({
-      title: '🔒 Ticket Closed',
-      description: `This ticket has been closed by ${closer}.\n\n**Reason:** ${reason}${dmOnClose ? '\n\n📩 A DM has been sent to the ticket creator.' : ''}`,
+      title: `🔒 ${locale.ticketClosed}`,
+      description: `${locale.ticketCreatedTitle} ${locale.closed} ${closer}.\n\n**${locale.closeReason}:** ${reason}${dmOnClose ? `\n\n📩 ${locale.dmSent}` : ''}`,
       color: '#e74c3c',
-      footer: { text: `Ticket ID: ${ticketData.id} | Use buttons below to manage` },
+      footer: { text: `Ticket ID: ${ticketData.id}` },
       timestamp: new Date().toISOString(),
     });
 
@@ -473,10 +634,13 @@ export async function claimTicket(channel, claimer) {
       return { success: false, error: 'This is not a ticket channel' };
     }
 
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
+
     if (ticketData.claimedBy) {
       return {
         success: false,
-        error: `This ticket is already claimed by <@${ticketData.claimedBy}>`
+        error: `${locale.alreadyClaimed} <@${ticketData.claimedBy}>`
       };
     }
 
@@ -531,12 +695,12 @@ export async function claimTicket(channel, claimer) {
     }
 
     const claimEmbed = createEmbed({
-      title: '✅ Ticket Claimed',
-      description: `${claimer} has claimed this ticket and will be assisting you!`,
+      title: `✅ ${locale.ticketClaimed}`,
+      description: `${claimer} ${locale.willAssist}`,
       color: '#2ecc71',
       fields: [
-        { name: 'Claimed At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
-        { name: 'Staff Member', value: claimer.toString(), inline: true },
+        { name: locale.claimedBy === 'Reclamado por' ? 'Reclamado el' : 'Claimed At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+        { name: locale.staffMember, value: claimer.toString(), inline: true },
       ],
       thumbnail: claimer.displayAvatarURL ? { url: claimer.displayAvatarURL({ size: 64 }) } : undefined,
     });
@@ -619,6 +783,7 @@ export async function reopenTicket(channel, reopener) {
     }
 
     const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
     const openCategoryId = config.ticketCategoryId || null;
     let movedToOpenCategory = false;
     let openCategoryMoveFailed = false;
@@ -710,11 +875,11 @@ export async function reopenTicket(channel, reopener) {
     }
 
     const reopenEmbed = createEmbed({
-      title: '🔓 Ticket Reopened',
-      description: `${reopener} has reopened this ticket!`,
+      title: `🔓 ${locale.ticketReopened}`,
+      description: `${reopener} ${locale.hasReopened}`,
       color: '#2ecc71',
       fields: [
-        { name: 'Reopened At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+        { name: locale.closed === 'Cerrado' ? 'Reabierto el' : 'Reopened At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
       ],
       footer: { text: `Reopened by ${reopener.tag}` },
     });
@@ -1207,10 +1372,13 @@ export async function unclaimTicket(channel, unclaimer) {
       return { success: false, error: 'This is not a ticket channel' };
     }
 
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
+
     if (!ticketData.claimedBy) {
       return {
         success: false,
-        error: 'This ticket is not currently claimed'
+        error: locale.notClaimed
       };
     }
 
@@ -1278,8 +1446,8 @@ export async function unclaimTicket(channel, unclaimer) {
 
     if (claimMessage) {
       const unclaimEmbed = createEmbed({
-        title: '🔓 Ticket Unclaimed',
-        description: `${unclaimer} has unclaimed this ticket. It is now available for other staff to claim.`,
+        title: `🔓 ${locale.ticketUnclaimed}`,
+        description: `${unclaimer} ${locale.hasUnclaimed} ${locale.nowAvailable}`,
         color: '#f39c12',
         timestamp: new Date().toISOString(),
       });
@@ -1290,8 +1458,8 @@ export async function unclaimTicket(channel, unclaimer) {
       });
     } else {
       const unclaimEmbed = createEmbed({
-        title: '🔓 Ticket Unclaimed',
-        description: `${unclaimer} has unclaimed this ticket. It is now available for other staff to claim.`,
+        title: `🔓 ${locale.ticketUnclaimed}`,
+        description: `${unclaimer} ${locale.hasUnclaimed} ${locale.nowAvailable}`,
         color: '#f39c12',
       });
 
@@ -1349,6 +1517,9 @@ export async function updateTicketPriority(channel, priority, updater) {
       return { success: false, error: 'This is not a ticket channel' };
     }
 
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
+
     const priorityInfo = PRIORITY_MAP[priority];
     if (!priorityInfo) {
       return { success: false, error: 'Invalid priority level' };
@@ -1401,12 +1572,12 @@ export async function updateTicketPriority(channel, priority, updater) {
     }
 
     const updateEmbed = createEmbed({
-      title: '📊 Priority Updated',
-      description: `Ticket priority changed to **${priorityInfo.emoji} ${priorityInfo.label}**\nUpdated by ${updater}`,
+      title: `📊 ${locale.priorityUpdated}`,
+      description: `${locale.priorityChangedTo} **${priorityInfo.emoji} ${priorityInfo.label}**\n${locale.updatedBy} ${updater}`,
       color: priorityInfo.color,
       fields: previousPriority !== priority ? [
-        { name: 'Previous', value: `${PRIORITY_MAP[previousPriority]?.emoji || '⚪'} ${PRIORITY_MAP[previousPriority]?.label || 'None'}`, inline: true },
-        { name: 'New', value: `${priorityInfo.emoji} ${priorityInfo.label}`, inline: true },
+        { name: locale.previous, value: `${PRIORITY_MAP[previousPriority]?.emoji || '⚪'} ${PRIORITY_MAP[previousPriority]?.label || 'None'}`, inline: true },
+        { name: locale.new, value: `${priorityInfo.emoji} ${priorityInfo.label}`, inline: true },
       ] : undefined,
     });
 
@@ -1461,6 +1632,9 @@ export async function addTicketNote(channel, author, noteContent, isInternal = t
       return { success: false, error: 'This is not a ticket channel' };
     }
 
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
+
     if (!ticketData.notes) {
       ticketData.notes = [];
     }
@@ -1479,13 +1653,13 @@ export async function addTicketNote(channel, author, noteContent, isInternal = t
     await saveTicketData(channel.guild.id, channel.id, ticketData);
 
     const noteEmbed = createEmbed({
-      title: `${isInternal ? '🔒' : '📝'} Staff Note Added`,
+      title: `${isInternal ? '🔒' : '📝'} ${locale.staffNoteAdded}`,
       description: noteContent,
       color: isInternal ? '#9b59b6' : '#3498db',
       fields: [
-        { name: 'Added By', value: author.toString(), inline: true },
-        { name: 'Added At', value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
-        { name: 'Visibility', value: isInternal ? 'Internal (staff only)' : 'Visible to ticket creator', inline: true },
+        { name: locale.addedBy, value: author.toString(), inline: true },
+        { name: locale.addedAt, value: `<t:${Math.floor(Date.now() / 1000)}:F>`, inline: true },
+        { name: locale.visibility, value: isInternal ? locale.internalNote : locale.visibleToCreator, inline: true },
       ],
       footer: { text: `Note ID: ${note.id}` },
     });
@@ -1597,12 +1771,15 @@ export async function watchTicket(channel, userId, notifyOnActivity = true) {
       return { success: false, error: 'This is not a ticket channel' };
     }
 
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
+
     if (!ticketData.watchers) {
       ticketData.watchers = [];
     }
 
     if (ticketData.watchers.some(w => w.userId === userId)) {
-      return { success: false, error: 'You are already watching this ticket' };
+      return { success: false, error: locale.alreadyWatching };
     }
 
     ticketData.watchers.push({
@@ -1614,10 +1791,10 @@ export async function watchTicket(channel, userId, notifyOnActivity = true) {
     await saveTicketData(channel.guild.id, channel.id, ticketData);
 
     const watchEmbed = createEmbed({
-      title: '👁️ Now Watching Ticket',
-      description: `<@${userId}> is now watching this ticket and will receive notifications for activity.`,
+      title: `👁️ ${locale.nowWatching}`,
+      description: `<@${userId}> ${locale.watchingDescription}`,
       color: '#3498db',
-      footer: { text: 'Use the Unwatch button to stop receiving notifications' },
+      footer: { text: locale.stoppedWatching },
     });
 
     await channel.send({ embeds: [watchEmbed] });
@@ -1641,17 +1818,20 @@ export async function unwatchTicket(channel, userId) {
       return { success: false, error: 'You are not watching this ticket' };
     }
 
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
+
     const watcherIndex = ticketData.watchers.findIndex(w => w.userId === userId);
     if (watcherIndex === -1) {
-      return { success: false, error: 'You are not watching this ticket' };
+      return { success: false, error: locale.notWatching };
     }
 
     ticketData.watchers.splice(watcherIndex, 1);
     await saveTicketData(channel.guild.id, channel.id, ticketData);
 
     const unwatchEmbed = createEmbed({
-      title: '👁️ Stopped Watching Ticket',
-      description: `<@${userId}> is no longer watching this ticket.`,
+      title: `👁️ ${locale.stoppedWatching}`,
+      description: `<@${userId}> ${locale.noLongerWatching}`,
       color: '#7f8c8d',
     });
 
@@ -1723,13 +1903,16 @@ export async function addTicketTag(channel, tag, addedBy) {
       return { success: false, error: 'This is not a ticket channel' };
     }
 
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
+
     if (!ticketData.tags) {
       ticketData.tags = [];
     }
 
     const normalizedTag = tag.toLowerCase().trim();
     if (ticketData.tags.includes(normalizedTag)) {
-      return { success: false, error: `Tag "${tag}" already exists on this ticket` };
+      return { success: false, error: `Tag "${tag}" ${locale.tagExists}` };
     }
 
     ticketData.tags.push(normalizedTag);
@@ -1737,11 +1920,11 @@ export async function addTicketTag(channel, tag, addedBy) {
     await saveTicketData(channel.guild.id, channel.id, ticketData);
 
     const tagEmbed = createEmbed({
-      title: '🏷️ Tag Added',
-      description: `Tag \`${normalizedTag}\` has been added to this ticket by ${addedBy}`,
+      title: `🏷️ ${locale.tagAdded}`,
+      description: `\`${normalizedTag}\` ${locale.tagAdded === 'Etiqueta Agregada' ? 'ha sido agregada a este ticket por' : 'has been added to this ticket by'} ${addedBy}`,
       color: '#9b59b6',
       fields: [
-        { name: 'Current Tags', value: ticketData.tags.map(t => `\`${t}\``).join(', ') || 'None', inline: false },
+        { name: locale.currentTags, value: ticketData.tags.map(t => `\`${t}\``).join(', ') || 'None', inline: false },
       ],
     });
 
@@ -1766,21 +1949,24 @@ export async function removeTicketTag(channel, tag, removedBy) {
       return { success: false, error: 'This ticket has no tags' };
     }
 
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
+
     const normalizedTag = tag.toLowerCase().trim();
     const tagIndex = ticketData.tags.indexOf(normalizedTag);
     if (tagIndex === -1) {
-      return { success: false, error: `Tag "${tag}" does not exist on this ticket` };
+      return { success: false, error: `Tag "${tag}" ${locale.tagNotFound}` };
     }
 
     ticketData.tags.splice(tagIndex, 1);
     await saveTicketData(channel.guild.id, channel.id, ticketData);
 
     const tagEmbed = createEmbed({
-      title: '🏷️ Tag Removed',
-      description: `Tag \`${normalizedTag}\` has been removed by ${removedBy}`,
+      title: `🏷️ ${locale.tagRemoved}`,
+      description: `\`${normalizedTag}\` ${locale.tagRemoved === 'Etiqueta Eliminada' ? 'ha sido eliminada por' : 'has been removed by'} ${removedBy}`,
       color: '#e74c3c',
       fields: [
-        { name: 'Current Tags', value: ticketData.tags.map(t => `\`${t}\``).join(', ') || 'None', inline: false },
+        { name: locale.currentTags, value: ticketData.tags.map(t => `\`${t}\``).join(', ') || 'None', inline: false },
       ],
     });
 
@@ -1926,11 +2112,14 @@ export async function autoCloseInactiveTickets(client, guild, thresholdHours = 7
   try {
     const config = await getGuildConfig(client, guild.id);
     const autoCloseEnabled = config.tickets?.autoCloseEnabled ?? false;
+    const locale = getLocale(getGuildLocale(config));
+
     if (!autoCloseEnabled) {
-      return { success: true, closed: 0, message: 'Auto-close is disabled for this guild' };
+      return { success: true, closed: 0, warned: 0, message: 'Auto-close is disabled for this guild' };
     }
 
     const thresholdMs = thresholdHours * 60 * 60 * 1000;
+    const warningThresholdMs = (thresholdHours - AUTO_CLOSE_WARNING_HOURS) * 60 * 60 * 1000;
     const now = Date.now();
 
     if (!db.initialized) {
@@ -1938,17 +2127,14 @@ export async function autoCloseInactiveTickets(client, guild, thresholdHours = 7
     }
 
     const prefix = `guild:${guild.id}:ticket:`;
-    let keys = [];
-
-    if (typeof db.list === 'function') {
-      keys = await db.list(prefix);
-    }
+    let keys = typeof db.list === 'function' ? await db.list(prefix) : [];
 
     if (!Array.isArray(keys)) {
       keys = [];
     }
 
     let closedCount = 0;
+    let warnedCount = 0;
     const errors = [];
 
     for (const key of keys) {
@@ -1962,14 +2148,19 @@ export async function autoCloseInactiveTickets(client, guild, thresholdHours = 7
           ? new Date(ticketData.lastActivityAt).getTime()
           : new Date(ticketData.createdAt).getTime();
 
-        if (now - lastActivity > thresholdMs) {
+        const inactiveMs = now - lastActivity;
+
+        if (inactiveMs > thresholdMs) {
           const channel = guild.channels.cache.get(ticketData.id)
             || await guild.channels.fetch(ticketData.id).catch(() => null);
 
           if (channel) {
             const autoCloser = client.user ? await guild.members.fetch(client.user.id).catch(() => null) : null;
-            const result = await closeTicket(channel, autoCloser || client.user,
-              `Automatically closed due to inactivity (${thresholdHours} hours)`);
+            const autoCloseReason = locale.autoClosed
+              ? `${locale.autoClosed} (${thresholdHours} ${locale.hours})`
+              : `Automatically closed due to inactivity (${thresholdHours} hours)`;
+
+            const result = await closeTicket(channel, autoCloser || client.user, autoCloseReason);
 
             if (result.success) {
               closedCount++;
@@ -1977,26 +2168,89 @@ export async function autoCloseInactiveTickets(client, guild, thresholdHours = 7
               errors.push({ ticketId: ticketData.id, error: result.error });
             }
           }
+        } else if (inactiveMs > warningThresholdMs && !ticketData.autoCloseWarningSent) {
+          const channel = guild.channels.cache.get(ticketData.id)
+            || await guild.channels.fetch(ticketData.id).catch(() => null);
+
+          if (channel) {
+            const warningEmbed = createEmbed({
+              title: '⚠️ Inactivity Warning / Advertencia de Inactividad',
+              description: `**EN:** ${locale.autoCloseWarning}\n\n**ES:** ${locale.autoCloseWarningEs || 'Este ticket se cerrara en 24 horas por inactividad'}`,
+              color: '#f39c12',
+              fields: [
+                { name: 'Last Activity / Ultima Actividad', value: `<t:${Math.floor(lastActivity / 1000)}:R>`, inline: true },
+                { name: 'Hours Inactive / Horas Inactivo', value: `${Math.floor(inactiveMs / 3600000)}`, inline: true },
+              ],
+              footer: { text: 'Reply to dismiss the warning / Responde para descartar la advertencia' },
+            });
+
+            await channel.send({ embeds: [warningEmbed] });
+
+            ticketData.autoCloseWarningSent = true;
+            ticketData.autoCloseWarningSentAt = new Date().toISOString();
+            await saveTicketData(guild.id, ticketData.id, ticketData);
+
+            warnedCount++;
+          }
         }
       } catch (ticketError) {
         errors.push({ key, error: ticketError.message });
       }
     }
 
-    logger.info('Auto-close completed', {
+    logger.info('Auto-close check completed', {
       guildId: guild.id,
       closedCount,
+      warnedCount,
       thresholdHours,
       errors: errors.length,
     });
 
-    return { success: true, closed: closedCount, errors };
+    return { success: true, closed: closedCount, warned: warnedCount, errors };
   } catch (error) {
     logger.error('Error in auto-close inactive tickets:', {
       guildId: guild?.id,
       error: error.message,
     });
-    return { success: false, closed: 0, error: error.message };
+    return { success: false, closed: 0, warned: 0, error: error.message };
+  }
+}
+
+export async function sendAutoCloseWarning(channel, hoursUntilClose = 24) {
+  try {
+    const ticketData = await getTicketData(channel.guild.id, channel.id);
+    if (!ticketData || ticketData.status !== 'open') {
+      return { success: false, error: 'No open ticket found' };
+    }
+
+    const config = await getGuildConfig(channel.client, channel.guild.id);
+    const locale = getLocale(getGuildLocale(config));
+
+    const warningEmbed = createEmbed({
+      title: '⚠️ Inactivity Warning / Advertencia de Inactividad',
+      description: `**EN:** This ticket will close in ${hoursUntilClose} hours due to inactivity.\n\n**ES:** Este ticket se cerrara en ${hoursUntilClose} horas por inactividad.`,
+      color: '#f39c12',
+      fields: [
+        { name: 'Last Activity / Ultima Actividad', value: ticketData.lastActivityAt ? `<t:${Math.floor(new Date(ticketData.lastActivityAt).getTime() / 1000)}:R>` : 'Unknown', inline: true },
+        { name: 'Ticket Created / Ticket Creado', value: `<t:${Math.floor(new Date(ticketData.createdAt).getTime() / 1000)}:R>`, inline: true },
+      ],
+      footer: { text: 'Reply to this ticket to prevent auto-closure / Responde para evitar el cierre automatico' },
+    });
+
+    await channel.send({ embeds: [warningEmbed] });
+
+    ticketData.autoCloseWarningSent = true;
+    ticketData.autoCloseWarningSentAt = new Date().toISOString();
+    await saveTicketData(channel.guild.id, channel.id, ticketData);
+
+    return { success: true };
+  } catch (error) {
+    logger.error('Error sending auto-close warning:', {
+      guildId: channel?.guild?.id,
+      channelId: channel?.id,
+      error: error.message,
+    });
+    return { success: false, error: error.message };
   }
 }
 
