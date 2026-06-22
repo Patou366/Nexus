@@ -6,7 +6,7 @@ import { createEmbed } from '../utils/embeds.js';
 import axios from 'axios';
 
 const AI_RATE_LIMIT_KEY = 'ai-mod-global';
-const AI_RATE_LIMIT_ATTEMPTS = 14;
+const AI_RATE_LIMIT_ATTEMPTS = 9;
 const AI_RATE_LIMIT_WINDOW_MS = 60000;
 
 const MIN_CONTENT_LENGTH = 4;
