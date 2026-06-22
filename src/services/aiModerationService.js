@@ -31,7 +31,10 @@ let geminiClient = null;
 function getGeminiClient() {
   if (geminiClient) return geminiClient;
   const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    logger.warn('⚠️ GEMINI_API_KEY not set in environment variables');
+    return null;
+  }
   geminiClient = new GoogleGenerativeAI(apiKey);
   return geminiClient;
 }
@@ -70,15 +73,13 @@ async function fetchImageAsInlineData(url) {
 async function analyzeContent(text, imageUrls = []) {
   const client = getGeminiClient();
   if (!client) {
-    logger.warn('AI moderation: analyzeContent called but Gemini client could not be initialised (missing API key?)');
+    logger.warn('🚨 AI moderation: Gemini client not initialized (missing API key)');
     return null;
   }
 
-  logger.debug('AI moderation: analyzeContent called', {
-    event: 'ai_moderation.analyze_start',
+  logger.info('🔍 AI moderation: Starting analysis', {
     textLength: text?.length ?? 0,
-    imageCount: imageUrls.length,
-    textPreview: text?.slice(0, 100) ?? ''
+    imageCount: imageUrls.length
   });
 
   const parts = [];
@@ -93,11 +94,7 @@ async function analyzeContent(text, imageUrls = []) {
   }
 
   if (parts.length === 0) {
-    logger.debug('AI moderation: no analysable content (text too short and no images), skipping', {
-      event: 'ai_moderation.analyze_skip',
-      textLength: text?.length ?? 0,
-      imageCount: imageUrls.length
-    });
+    logger.debug('AI moderation: No analysable content (text too short and no images)');
     return null;
   }
 
@@ -107,6 +104,7 @@ async function analyzeContent(text, imageUrls = []) {
       systemInstruction: SYSTEM_PROMPT
     });
 
+    logger.debug('📤 Sending request to Gemini API...');
     const result = await model.generateContent({
       contents: [{ role: 'user', parts }],
       generationConfig: {
@@ -117,17 +115,12 @@ async function analyzeContent(text, imageUrls = []) {
 
     const raw = result.response?.text()?.trim();
 
-    logger.debug('AI moderation: raw Gemini response received', {
-      event: 'ai_moderation.raw_response',
-      rawResponse: raw ?? '(empty)'
-    });
-
     if (!raw) {
-      logger.warn('AI moderation: Gemini returned an empty response', {
-        event: 'ai_moderation.empty_response'
-      });
+      logger.warn('⚠️ Gemini returned an empty response');
       return null;
     }
+
+    logger.debug('📥 Raw Gemini response received:', raw.slice(0, 200));
 
     const cleaned = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/i, '').trim();
 
@@ -135,8 +128,7 @@ async function analyzeContent(text, imageUrls = []) {
     try {
       parsed = JSON.parse(cleaned);
     } catch (parseError) {
-      logger.warn('AI moderation: failed to parse Gemini response as JSON', {
-        event: 'ai_moderation.json_parse_error',
+      logger.error('❌ Failed to parse Gemini response as JSON', {
         parseError: parseError.message,
         rawResponse: raw
       });
@@ -144,8 +136,7 @@ async function analyzeContent(text, imageUrls = []) {
     }
 
     if (!parsed.classification || typeof parsed.confidence !== 'number') {
-      logger.warn('AI moderation: parsed JSON is missing required fields', {
-        event: 'ai_moderation.invalid_response_shape',
+      logger.error('❌ Parsed JSON missing required fields', {
         parsed: JSON.stringify(parsed)
       });
       return null;
@@ -157,22 +148,15 @@ async function analyzeContent(text, imageUrls = []) {
       reason: parsed.reason || 'No reason provided'
     };
 
-    logger.debug('AI moderation: classification result', {
-      event: 'ai_moderation.classification_result',
-      classification: classification.classification,
-      confidence: classification.confidence,
+    logger.info(`✅ Classification result: ${classification.classification} (${Math.round(classification.confidence * 100)}%)`, {
       reason: classification.reason
     });
 
     return classification;
   } catch (error) {
-    logger.error(`AI moderation: Gemini API call failed - ${error.message}`);
-    logger.error('AI moderation error details:', {
-      event: 'ai_moderation.api_error',
-      errorMessage: error.message,
+    logger.error(`❌ Gemini API call failed: ${error.message}`, {
       errorCode: error.code ?? error.status ?? 'UNKNOWN',
-      errorName: error.name,
-      errorStack: error.stack
+      errorName: error.name
     });
     return null;
   }
@@ -383,22 +367,28 @@ export class AiModerationService {
     try {
       if (message.author.bot || !message.guild) return;
 
+      logger.info('🎯 AI Moderation: Message received', {
+        guildId: message.guild.id,
+        userId: message.author.id,
+        contentLength: message.content?.length ?? 0
+      });
+
       const aiConfig = await this.getAiConfig(client, message.guild.id);
-      if (!aiConfig.enabled) return;
+      
+      if (!aiConfig.enabled) {
+        logger.debug('AI moderation disabled for this guild');
+        return;
+      }
 
       if (!process.env.GEMINI_API_KEY) {
-        logger.debug('AI moderation enabled but GEMINI_API_KEY not set');
+        logger.warn('🚨 AI moderation enabled but GEMINI_API_KEY not set in environment');
         return;
       }
 
       // Use global rate limit (not per-guild) to respect Gemini's API key-level quotas
       const canProcess = await checkRateLimit(AI_RATE_LIMIT_KEY, AI_RATE_LIMIT_ATTEMPTS, AI_RATE_LIMIT_WINDOW_MS);
       if (!canProcess) {
-        logger.debug('AI moderation: global rate limit exceeded, skipping message', {
-          event: 'ai_moderation.rate_limited',
-          guildId: message.guild.id,
-          userId: message.author.id
-        });
+        logger.info('⏱️ Global rate limit exceeded, skipping message');
         return;
       }
 
@@ -415,60 +405,35 @@ export class AiModerationService {
         }
       }
 
-      if (text.length < MIN_CONTENT_LENGTH && imageUrls.length === 0) return;
-
-      logger.debug('AI moderation: calling analyzeContent', {
-        event: 'ai_moderation.process_start',
-        guildId: message.guild.id,
-        userId: message.author.id,
-        textLength: text.length,
-        imageCount: imageUrls.length
-      });
+      if (text.length < MIN_CONTENT_LENGTH && imageUrls.length === 0) {
+        logger.debug('Message too short and no images, skipping');
+        return;
+      }
 
       const result = await analyzeContent(text, imageUrls);
 
       if (!result) {
-        logger.debug('AI moderation: analyzeContent returned null, no action taken', {
-          event: 'ai_moderation.no_result',
-          guildId: message.guild.id,
-          userId: message.author.id
-        });
+        logger.debug('No analysis result returned');
         return;
       }
 
       if (result.classification === 'safe') {
-        logger.debug('AI moderation: message classified as safe, no action taken', {
-          event: 'ai_moderation.safe',
-          guildId: message.guild.id,
-          userId: message.author.id,
-          confidence: result.confidence,
-          reason: result.reason
-        });
+        logger.debug('Message classified as safe');
         return;
       }
 
       if (result.confidence < aiConfig.confidenceThreshold) {
-        logger.debug('AI moderation: confidence below threshold, no action taken', {
-          event: 'ai_moderation.below_threshold',
-          guildId: message.guild.id,
-          userId: message.author.id,
-          classification: result.classification,
-          confidence: result.confidence,
-          threshold: aiConfig.confidenceThreshold,
-          reason: result.reason
-        });
+        logger.debug(`Confidence ${result.confidence} below threshold ${aiConfig.confidenceThreshold}`);
         return;
       }
 
       const action = getActionForClassification(aiConfig, result.classification);
 
-      logger.info(`AI moderation flagged message in ${message.guild.name}`, {
-        event: 'ai_moderation.flagged',
+      logger.warn(`🚨 AI MODERATION TRIGGERED: ${result.classification.toUpperCase()} (${Math.round(result.confidence * 100)}%)`, {
         guildId: message.guild.id,
         userId: message.author.id,
-        classification: result.classification,
-        confidence: result.confidence,
-        action
+        action: action,
+        reason: result.reason
       });
 
       await Promise.all([
@@ -476,7 +441,7 @@ export class AiModerationService {
         sendAiAlert(message, client, result, action, aiConfig)
       ]);
     } catch (error) {
-      logger.error('Error in AI moderation processing:', error);
+      logger.error('❌ Error in AI moderation processing:', error);
     }
   }
 }
