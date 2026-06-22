@@ -6,10 +6,10 @@ import { createEmbed } from '../utils/embeds.js';
 import axios from 'axios';
 
 const AI_RATE_LIMIT_KEY = 'ai-mod-global';
-const AI_RATE_LIMIT_ATTEMPTS = 8;
+const AI_RATE_LIMIT_ATTEMPTS = 14;
 const AI_RATE_LIMIT_WINDOW_MS = 60000;
 
-const MIN_CONTENT_LENGTH = 10;
+const MIN_CONTENT_LENGTH = 4;
 
 const SYSTEM_PROMPT = `You are a Discord server security analyst. Your job is to classify messages and determine if they are:
 - **spam**: Unsolicited promotional messages, repetitive advertising, crypto/NFT scams, phishing links, fake giveaways
@@ -110,6 +110,7 @@ async function analyzeContent(text, imageUrls = []) {
       generationConfig: {
         maxOutputTokens: 150,
         temperature: 0.1
+        responseMimeType: "application/json"
       }
     });
 
