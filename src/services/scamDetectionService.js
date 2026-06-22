@@ -172,6 +172,16 @@ const SCAM_RESPONSES = [
   'Where do I sign up to lose everything?',
   'This is definitely how wealth works',
   'Financial advice of the century right here',
+  'Let me just grab my clown suit before I click that 🤡',
+  'Oh wow, a generous billionaire stranger, my lucky day!',
+  'Seems legit. Next, you\'re gonna tell me the moon is made of cheese.',
+  'My spidey senses are tingling, and they\'re saying "block".',
+  'Wow, I didn\'t know free money grew on digital trees!',
+  'Hold on, let me go find someone who actually believes this.',
+  'Clicking this link sounds like a great way to start over from zero.',
+  'Is this the part where I pretend to be surprised it\'s a scam?',
+  'Sending this straight to the "Never Going to Happen" folder.',
+  'Ah, a classic. 10/10 for creativity, 0/10 for believability.'
 ];
 
 function getBotAlertsKey(guildId) {
