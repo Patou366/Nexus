@@ -109,8 +109,7 @@ async function analyzeContent(text, imageUrls = []) {
       contents: [{ role: 'user', parts }],
       generationConfig: {
         maxOutputTokens: 150,
-        temperature: 0.1,
-        responseMimeType: "application/json"
+        temperature: 0.1
       }
     });
 
@@ -282,7 +281,7 @@ async function sendAiAlert(message, client, aiResult, action, aiConfig) {
       },
       {
         name: 'AI Reason / Razón IA',
-        value: aiResult.reason.slice(0, 1024),
+        value: (aiResult.reason || 'No reason provided').slice(0, 1024),
         inline: false
       },
       {
