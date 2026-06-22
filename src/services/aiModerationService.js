@@ -5,8 +5,8 @@ import { QuarantineService } from './quarantineService.js';
 import { createEmbed } from '../utils/embeds.js';
 import axios from 'axios';
 
-const AI_RATE_LIMIT_KEY_PREFIX = 'ai-mod';
-const AI_RATE_LIMIT_ATTEMPTS = 14;
+const AI_RATE_LIMIT_KEY = 'ai-mod-global';
+const AI_RATE_LIMIT_ATTEMPTS = 8;
 const AI_RATE_LIMIT_WINDOW_MS = 60000;
 
 const MIN_CONTENT_LENGTH = 10;
@@ -391,9 +391,16 @@ export class AiModerationService {
         return;
       }
 
-      const rateLimitKey = `${AI_RATE_LIMIT_KEY_PREFIX}:${message.guild.id}`;
-      const canProcess = await checkRateLimit(rateLimitKey, AI_RATE_LIMIT_ATTEMPTS, AI_RATE_LIMIT_WINDOW_MS);
-      if (!canProcess) return;
+      // Use global rate limit (not per-guild) to respect Gemini's API key-level quotas
+      const canProcess = await checkRateLimit(AI_RATE_LIMIT_KEY, AI_RATE_LIMIT_ATTEMPTS, AI_RATE_LIMIT_WINDOW_MS);
+      if (!canProcess) {
+        logger.debug('AI moderation: global rate limit exceeded, skipping message', {
+          event: 'ai_moderation.rate_limited',
+          guildId: message.guild.id,
+          userId: message.author.id
+        });
+        return;
+      }
 
       const text = message.content || '';
       const imageUrls = [];
@@ -473,4 +480,3 @@ export class AiModerationService {
     }
   }
 }
-
