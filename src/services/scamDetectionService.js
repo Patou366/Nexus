@@ -2,62 +2,166 @@ import { logger } from '../utils/logger.js';
 import { getFromDb, setInDb } from '../utils/database.js';
 
 const SCAM_KEYWORDS = [
+  // Crypto gambling scams (high confidence)
+  'stake.com',
+  'staked',
+  'rollbit',
+  'roobet',
+  'csgoempire',
+  'rustmagic',
+  'csgoroll',
+  'rustroll',
+  'gammix',
+  'bc.game',
+  'bcgame',
+
+  // Specific scam bot signatures (extremely high confidence)
+  'honestly6239',
+  'honestly',
+  'mrbeast',
+  'mr beast',
+  'beast giveaway',
+
+  // Wallet drain scams
+  'verify your wallet',
+  'connect wallet to',
+  'wallet connect',
+  'sign message to',
+  'approve transaction to',
+  'permit signature',
+  'revoke.cash',
+  'revoke allowance',
+  'wallet drained',
+  'drain wallet',
+
+  // Seed phrase / private key scams
+  'seed phrase',
+  'private key',
+  'recovery phrase',
+  '12 word',
+  '24 word',
+  'mnemonic phrase',
+  'import wallet with phrase',
+
+  // NFT mint scams
+  'free mint',
+  'free nft',
+  'mint now',
+  'whitelist mint',
+  'presale mint',
+  'gasless mint',
+  '0.00 eth mint',
+  'openSea verification',
+  'blur verification',
+  'magic eden verify',
+
+  // Crypto trading scams
+  'copy trade',
+  'copy trade me',
+  'sniper bot',
+  'pump fun',
+  'bondingcurve',
+  'bonding curve',
+  'raydium pool',
+  'jupiter swap',
+  'moonshot token',
+  '100x leverage',
+  'vip signals',
+  'vip signal',
+  'alpha group',
+  'backdoor signal',
+  'insider signal',
+
+  // Rug pull scams
   'rug pull',
   'rugpull',
-  'made',
-  'sol',
-  'giving out',
-  'giveaway',
-  'free sol',
-  'airdrop',
+  'anti-rug',
+  'liquidity locked',
+  'ownership renounced',
+  'migrate liquidity',
+  'inject liquidity',
+
+  // "Double your crypto" scams
   'double your',
   '2x your',
+  '3x your',
   'send sol get',
   'send eth get',
   'send btc get',
-  'instant withdrawal',
+  'deposit and receive',
+
+  // Withdrawal screenshot scams
   'withdrawal success',
   'withdraw success',
+  'instant withdrawal',
+  'just withdrew',
+  'withdrawal pending',
+
+  // Bonus code scams
   'bonus code',
   'activate code',
+  'promo code',
+  'referral code',
   'rakeback',
-  'honestly6239',
-  'crypto casino',
   'deposit bonus',
-  'free money',
-  'easy money',
-  'get rich',
+  'welcome bonus',
+
+  // Generic scam phrases (high confidence)
   'guaranteed profit',
   'no risk',
   '100% legit',
   'verified giveaway',
-  'claim now',
   'limited spots',
-  'dm me for',
-  'click the link',
-  'verify your wallet',
-  'connect wallet',
-  'seed phrase',
-  'private key',
-  'recovery phrase',
+  'spots remaining',
+  'claim before',
+  'expires in',
+  'act now',
 ];
 
 const SCAM_IMAGE_INDICATORS = [
-  'withdrawal success',
-  'withdraw success',
-  'bonus',
-  'activate code',
-  'rakeback',
+  // Gambling site names (very high confidence)
+  'stake.com',
+  'stake ',
+  'rollbit',
+  'roobet',
+  'csgoempire',
+  'csgoroll',
+  'rustmagic',
+  'rustroll',
+  'bc.game',
+  'bcgame',
+
+  // Specific scam bot signatures
+  'honestly6239',
   'honestly',
   'mrbeast',
   'mr beast',
-  'crypto casino',
-  'deposit',
+
+  // Fake withdrawal screenshots
+  'withdrawal success',
+  'withdraw success',
+  'just withdrew',
+  'withdrawn: ',
+
+  // Bonus/promo codes
+  'bonus code',
+  'activate code',
+  'promo code',
+  'referral code',
+  'rakeback',
+  'deposit bonus',
+
+  // Crypto giveaway spam
   'free sol',
-  'free money',
-  'giveaway',
+  'sol giveaway',
+  'free eth',
+  'eth giveaway',
+  'airdrop claim',
+
+  // Rug pull imagery
   'rug pull',
   'rugpull',
+  'liquidity locked',
 ];
 
 const SCAM_RESPONSES = [
