@@ -98,9 +98,9 @@ async function analyzeContent(text, imageUrls = []) {
     return null;
   }
 
-  try {
+try {
     const model = client.getGenerativeModel({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.5-flash',
       systemInstruction: SYSTEM_PROMPT
     });
 
