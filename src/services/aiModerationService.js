@@ -11,6 +11,15 @@ const AI_RATE_LIMIT_WINDOW_MS = 60000;
 
 const MIN_CONTENT_LENGTH = 4;
 
+const IMAGE_CACHE_MAX_SIZE = 100;
+const IMAGE_CACHE_TTL_MS = 30 * 60 * 1000; // 30 minutes
+const imageCache = new Map();
+
+const RETRY_MAX_ATTEMPTS = 3;
+const RETRY_BASE_DELAY_MS = 1000;
+
+const CONTEXT_MESSAGES_LIMIT = 5;
+
 const SYSTEM_PROMPT = `You are a Discord server security analyst. Your job is to classify messages and determine if they are:
 - **spam**: Unsolicited promotional messages, repetitive advertising, crypto/NFT scams, phishing links, fake giveaways
 - **bot**: Automated messages from selfbots or userbot accounts — unnatural patterns, templated messages, mass-DM style content
@@ -26,6 +35,22 @@ Guidelines:
 - Do not flag messages for being rude or off-topic — only flag actual security threats
 - Images: if an image is provided, analyze it for scam screenshots, phishing pages, shock/gore content, or raid imagery`;
 
+const SYSTEM_PROMPT_WITH_CONTEXT = `You are a Discord server security analyst. Your job is to classify messages and determine if they are:
+- **spam**: Unsolicited promotional messages, repetitive advertising, crypto/NFT scams, phishing links, fake giveaways
+- **bot**: Automated messages from selfbots or userbot accounts — unnatural patterns, templated messages, mass-DM style content
+- **raid**: Coordinated attack messages — hate speech, slurs, flooding, shock content, server destruction intent, mass pings, threats to the server
+- **safe**: Normal human conversation that poses no threat
+
+You MUST respond with ONLY a valid JSON object (no markdown, no code fences). Use this exact format:
+{"classification":"safe|spam|bot|raid","confidence":0.0-1.0,"reason":"brief explanation"}
+
+Guidelines:
+- Be conservative: only flag content you are confident is malicious (confidence >= 0.75)
+- Short casual messages like "hi", "lol", "gg" are ALWAYS safe
+- Do not flag messages for being rude or off-topic — only flag actual security threats
+- Images: if an image is provided, analyze it for scam screenshots, phishing pages, shock/gore content, or raid imagery
+- Context: Recent messages from the same channel are provided. Look for patterns like: same user posting rapidly, multiple users posting similar content (coordinated raid), or spam flooding`;
+
 let geminiClient = null;
 
 function getGeminiClient() {
@@ -38,39 +63,104 @@ function getGeminiClient() {
   geminiClient = new GoogleGenerativeAI(apiKey);
   return geminiClient;
 }
-/**
- * Download an image and convert it to a Gemini-compatible inline data part
- * @param {string} url
- * @returns {Promise<{inlineData: {data: string, mimeType: string}} | null>}
- */
+
+function getCachedImage(url) {
+  const cached = imageCache.get(url);
+  if (!cached) return null;
+  if (Date.now() - cached.timestamp > IMAGE_CACHE_TTL_MS) {
+    imageCache.delete(url);
+    return null;
+  }
+  return cached.data;
+}
+
+function setCachedImage(url, data) {
+  if (imageCache.size >= IMAGE_CACHE_MAX_SIZE) {
+    const oldestKey = imageCache.keys().next().value;
+    if (oldestKey) imageCache.delete(oldestKey);
+  }
+  imageCache.set(url, { data, timestamp: Date.now() });
+}
+
+async function sleep(ms) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function retryWithBackoff(fn, context = 'operation') {
+  let lastError = null;
+  for (let attempt = 1; attempt <= RETRY_MAX_ATTEMPTS; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error;
+      const isRetryable = !error.status || error.status === 429 || error.status >= 500;
+      if (!isRetryable || attempt === RETRY_MAX_ATTEMPTS) {
+        throw error;
+      }
+      const delay = RETRY_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+      logger.warn(`Retry ${attempt}/${RETRY_MAX_ATTEMPTS} for ${context} after ${delay}ms`, {
+        error: error.message
+      });
+      await sleep(delay);
+    }
+  }
+  throw lastError;
+}
+
+async function fetchRecentMessages(channel, beforeMessageId) {
+  try {
+    const messages = await channel.messages.fetch({
+      limit: CONTEXT_MESSAGES_LIMIT,
+      before: beforeMessageId
+    });
+    const formatted = [];
+    for (const msg of messages.values()) {
+      if (msg.author.bot) continue;
+      const content = msg.content?.trim();
+      if (content && content.length >= MIN_CONTENT_LENGTH) {
+        formatted.push({
+          author: msg.author.tag,
+          content: content.slice(0, 200),
+          timestamp: msg.createdTimestamp
+        });
+      }
+    }
+    return formatted.sort((a, b) => b.timestamp - a.timestamp).slice(0, CONTEXT_MESSAGES_LIMIT);
+  } catch (error) {
+    logger.debug('Failed to fetch recent messages for context:', error.message);
+    return [];
+  }
+}
+
 async function fetchImageAsInlineData(url) {
+  const cached = getCachedImage(url);
+  if (cached) {
+    logger.debug('Using cached image data');
+    return cached;
+  }
+
   try {
     const response = await axios.get(url, {
       responseType: 'arraybuffer',
       timeout: 10000,
       maxContentLength: 4 * 1024 * 1024,
       headers: {
-        // Disguise the request to bypass Discord CDN 403 Forbidden blocks
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8'
       }
     });
     const mimeType = response.headers['content-type'] || 'image/png';
     const base64 = Buffer.from(response.data).toString('base64');
-    return { inlineData: { data: base64, mimeType } };
+    const result = { inlineData: { data: base64, mimeType } };
+    setCachedImage(url, result);
+    return result;
   } catch (error) {
     logger.error(`Failed to fetch image for AI analysis: ${error.message}`);
     return null;
   }
 }
 
-/**
- * Analyze message text and/or images using Google Gemini
- * @param {string} text - Message text content
- * @param {string[]} imageUrls - Array of image URLs from attachments
- * @returns {Promise<{classification: string, confidence: number, reason: string} | null>}
- */
-async function analyzeContent(text, imageUrls = []) {
+async function analyzeContent(text, imageUrls = [], recentMessages = []) {
   const client = getGeminiClient();
   if (!client) {
     logger.warn('🚨 AI moderation: Gemini client not initialized (missing API key)');
@@ -79,7 +169,8 @@ async function analyzeContent(text, imageUrls = []) {
 
   logger.info('🔍 AI moderation: Starting analysis', {
     textLength: text?.length ?? 0,
-    imageCount: imageUrls.length
+    imageCount: imageUrls.length,
+    contextMessages: recentMessages.length
   });
 
   const parts = [];
@@ -98,20 +189,32 @@ async function analyzeContent(text, imageUrls = []) {
     return null;
   }
 
-try {
-    const model = client.getGenerativeModel({
-      model: 'gemini-2.5-flash',
-      systemInstruction: SYSTEM_PROMPT
-    });
+  const hasContext = recentMessages.length > 0;
+  const systemPrompt = hasContext ? SYSTEM_PROMPT_WITH_CONTEXT : SYSTEM_PROMPT;
 
-    logger.debug('📤 Sending request to Gemini API...');
-    const result = await model.generateContent({
-      contents: [{ role: 'user', parts }],
-      generationConfig: {
-        maxOutputTokens: 150,
-        temperature: 0.1
-      }
-    });
+  if (hasContext) {
+    const contextText = recentMessages.map(m =>
+      `[${m.author}]: ${m.content}`
+    ).join('\n');
+    parts.push({ text: `\nRecent channel context:\n${contextText}` });
+  }
+
+  try {
+    const result = await retryWithBackoff(async () => {
+      const model = client.getGenerativeModel({
+        model: 'gemini-2.5-flash',
+        systemInstruction: systemPrompt
+      });
+
+      logger.debug('📤 Sending request to Gemini API...');
+      return await model.generateContent({
+        contents: [{ role: 'user', parts }],
+        generationConfig: {
+          maxOutputTokens: 150,
+          temperature: 0.1
+        }
+      });
+    }, 'Gemini API call');
 
     const raw = result.response?.text()?.trim();
 
@@ -130,7 +233,7 @@ try {
     } catch (parseError) {
       logger.error('❌ Failed to parse Gemini response as JSON', {
         parseError: parseError.message,
-        rawResponse: raw
+        rawResponse: raw.slice(0, 500)
       });
       return null;
     }
@@ -162,17 +265,11 @@ try {
   }
 }
 
-/**
- * Get the configured action for a given classification
- */
 function getActionForClassification(aiConfig, classification) {
   const actions = aiConfig.actions || {};
   return actions[classification] || 'quarantine';
 }
 
-/**
- * Execute the designated action on a flagged user
- */
 async function executeAction(action, message, client, aiResult, aiConfig) {
   const guild = message.guild;
   const member = message.member || await guild.members.fetch(message.author.id).catch(() => null);
@@ -233,9 +330,6 @@ async function executeAction(action, message, client, aiResult, aiConfig) {
   }
 }
 
-/**
- * Send an alert embed to the notification channel
- */
 async function sendAiAlert(message, client, aiResult, action, aiConfig) {
   const { RaidDetectionService } = await import('./raidDetectionService.js');
   const config = await RaidDetectionService.getRaidConfig(client, message.guild.id);
@@ -306,9 +400,6 @@ async function sendAiAlert(message, client, aiResult, action, aiConfig) {
 }
 
 export class AiModerationService {
-  /**
-   * Get AI moderation config for a guild
-   */
   static async getAiConfig(client, guildId) {
     try {
       const { getGuildConfig } = await import('../utils/database.js');
@@ -318,6 +409,8 @@ export class AiModerationService {
         confidenceThreshold: config?.raidShield?.aiModeration?.confidenceThreshold ?? 0.80,
         scanImages: config?.raidShield?.aiModeration?.scanImages ?? true,
         alertChannelId: config?.raidShield?.aiModeration?.alertChannelId ?? null,
+        trustedRoles: config?.raidShield?.aiModeration?.trustedRoles ?? [],
+        enableContext: config?.raidShield?.aiModeration?.enableContext ?? true,
         actions: {
           spam: config?.raidShield?.aiModeration?.actions?.spam ?? 'quarantine',
           bot: config?.raidShield?.aiModeration?.actions?.bot ?? 'quarantine',
@@ -332,14 +425,13 @@ export class AiModerationService {
         confidenceThreshold: 0.80,
         scanImages: true,
         alertChannelId: null,
+        trustedRoles: [],
+        enableContext: true,
         actions: { spam: 'quarantine', bot: 'quarantine', raid: 'quarantine' }
       };
     }
   }
 
-  /**
-   * Save AI moderation config for a guild
-   */
   static async saveAiConfig(client, guildId, updates) {
     try {
       const { getGuildConfig, setGuildConfig } = await import('../utils/database.js');
@@ -358,14 +450,15 @@ export class AiModerationService {
     }
   }
 
-  /**
-   * Process a message through AI moderation
-   * @param {Message} message
-   * @param {Client} client
-   */
   static async processMessage(message, client) {
     try {
       if (message.author.bot || !message.guild) return;
+
+      // Upgrade 2: Skip webhook messages
+      if (message.webhookId) {
+        logger.debug('Skipping webhook message');
+        return;
+      }
 
       logger.info('🎯 AI Moderation: Message received', {
         guildId: message.guild.id,
@@ -374,7 +467,7 @@ export class AiModerationService {
       });
 
       const aiConfig = await this.getAiConfig(client, message.guild.id);
-      
+
       if (!aiConfig.enabled) {
         logger.debug('AI moderation disabled for this guild');
         return;
@@ -385,7 +478,16 @@ export class AiModerationService {
         return;
       }
 
-      // Use global rate limit (not per-guild) to respect Gemini's API key-level quotas
+      // Upgrade 4: Trusted role bypass
+      const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
+      if (member && aiConfig.trustedRoles?.length > 0) {
+        const hasTrustedRole = aiConfig.trustedRoles.some(roleId => member.roles.cache.has(roleId));
+        if (hasTrustedRole) {
+          logger.debug('User has trusted role, skipping AI moderation');
+          return;
+        }
+      }
+
       const canProcess = await checkRateLimit(AI_RATE_LIMIT_KEY, AI_RATE_LIMIT_ATTEMPTS, AI_RATE_LIMIT_WINDOW_MS);
       if (!canProcess) {
         logger.info('⏱️ Global rate limit exceeded, skipping message');
@@ -410,7 +512,13 @@ export class AiModerationService {
         return;
       }
 
-      const result = await analyzeContent(text, imageUrls);
+      // Upgrade 5: Context-aware analysis
+      let recentMessages = [];
+      if (aiConfig.enableContext) {
+        recentMessages = await fetchRecentMessages(message.channel, message.id);
+      }
+
+      const result = await analyzeContent(text, imageUrls, recentMessages);
 
       if (!result) {
         logger.debug('No analysis result returned');
@@ -443,5 +551,46 @@ export class AiModerationService {
     } catch (error) {
       logger.error('❌ Error in AI moderation processing:', error);
     }
+  }
+
+  // Upgrade 3: Message edit handling
+  static async processMessageEdit(oldMessage, newMessage, client) {
+    if (!oldMessage || !newMessage) return;
+
+    // Skip if content and attachments unchanged
+    if (oldMessage.content === newMessage.content &&
+        oldMessage.attachments?.size === newMessage.attachments?.size) {
+      return;
+    }
+
+    if (newMessage.author?.bot || !newMessage.guild) return;
+
+    // Skip webhook messages
+    if (newMessage.webhookId) {
+      logger.debug('Skipping edited webhook message');
+      return;
+    }
+
+    logger.info('🔄 AI Moderation: Processing edited message', {
+      guildId: newMessage.guild.id,
+      userId: newMessage.author.id,
+      oldLength: oldMessage.content?.length ?? 0,
+      newLength: newMessage.content?.length ?? 0
+    });
+
+    await this.processMessage(newMessage, client);
+  }
+
+  static clearImageCache() {
+    imageCache.clear();
+    logger.debug('Image analysis cache cleared');
+  }
+
+  static getImageCacheStats() {
+    return {
+      size: imageCache.size,
+      maxSize: IMAGE_CACHE_MAX_SIZE,
+      ttlMs: IMAGE_CACHE_TTL_MS
+    };
   }
 }

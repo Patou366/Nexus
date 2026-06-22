@@ -1,6 +1,7 @@
 import { Events } from 'discord.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { logger } from '../utils/logger.js';
+import { AiModerationService } from '../services/aiModerationService.js';
 
 const MAX_LOGGED_EDIT_CONTENT_LENGTH = 512;
 
@@ -73,6 +74,11 @@ export default {
           fields
         }
       });
+
+      // AI moderation for edited messages
+      AiModerationService.processMessageEdit(oldMessage, newMessage, newMessage.client).catch(err =>
+        logger.debug('Error in AI moderation for edited message:', err)
+      );
 
     } catch (error) {
       logger.error('Error in messageUpdate event:', error);

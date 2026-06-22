@@ -127,6 +127,40 @@ export default {
               { name: 'Delete message only', value: 'delete' }
             )
         )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('ai-trusted')
+        .setDescription('Manage roles that bypass AI moderation')
+        .addRoleOption(opt =>
+          opt
+            .setName('role')
+            .setDescription('Role to add/remove from trusted list')
+            .setRequired(false)
+        )
+        .addBooleanOption(opt =>
+          opt
+            .setName('remove')
+            .setDescription('Remove this role from trusted list instead of adding')
+            .setRequired(false)
+        )
+        .addBooleanOption(opt =>
+          opt
+            .setName('clear')
+            .setDescription('Clear all trusted roles')
+            .setRequired(false)
+        )
+    )
+    .addSubcommand(sub =>
+      sub
+        .setName('ai-context')
+        .setDescription('Toggle context-aware analysis for better raid detection')
+        .addBooleanOption(opt =>
+          opt
+            .setName('enabled')
+            .setDescription('Enable/disable analyzing recent messages for patterns')
+            .setRequired(true)
+        )
     ),
 
   category: 'moderation',
@@ -164,9 +198,13 @@ export default {
           ? `<#${aiConfig.alertChannelId}>`
           : 'Same as Raid Shield / Igual que Escudo';
         const aiActions = `Spam: ${aiConfig.actions.spam}, Bot: ${aiConfig.actions.bot}, Raid: ${aiConfig.actions.raid}`;
+        const aiContext = aiConfig.enableContext ? 'On / Activado' : 'Off / Desactivado';
+        const trustedRolesList = aiConfig.trustedRoles?.length > 0
+          ? aiConfig.trustedRoles.map(id => `<@&${id}>`).join(', ')
+          : 'None / Ninguno';
 
         const embed = infoEmbed(
-          `**Status:** ${status}\n\n**Notification Channel:** ${notificationChannel}\n**Verified Role:** ${verifiedRole}\n**Quarantine Role:** ${quarantineRole}\n**Alert Role:** ${alertRole}\n\n**--- AI Moderation / Moderación IA ---**\n**AI Status:** ${aiStatus}\n**Image Scanning:** ${aiImageScan}\n**Confidence Threshold:** ${aiConfidence}\n**AI Alert Channel:** ${aiAlertCh}\n**AI Actions:** ${aiActions}`,
+          `**Status:** ${status}\n\n**Notification Channel:** ${notificationChannel}\n**Verified Role:** ${verifiedRole}\n**Quarantine Role:** ${quarantineRole}\n**Alert Role:** ${alertRole}\n\n**--- AI Moderation / Moderación IA ---**\n**AI Status:** ${aiStatus}\n**Image Scanning:** ${aiImageScan}\n**Confidence Threshold:** ${aiConfidence}\n**AI Alert Channel:** ${aiAlertCh}\n**Context Analysis:** ${aiContext}\n**Trusted Roles:** ${trustedRolesList}\n**AI Actions:** ${aiActions}`,
           '🔒 Raid Shield Configuration / Configuración del Escudo Anti-Raid'
         );
 
@@ -304,6 +342,105 @@ export default {
           )]
         });
         logger.info(`AI moderation action for ${threatType} set to ${action} in guild ${guildId}`);
+        return;
+      }
+
+      if (subcommand === 'ai-trusted') {
+        const role = interaction.options.getRole('role');
+        const remove = interaction.options.getBoolean('remove');
+        const clear = interaction.options.getBoolean('clear');
+
+        if (clear) {
+          await AiModerationService.saveAiConfig(client, guildId, { trustedRoles: [] });
+          await InteractionHelper.universalReply(interaction, {
+            embeds: [successEmbed(
+              'All trusted roles have been cleared. AI moderation will scan all users.\n\nTodos los roles de confianza han sido eliminados. La IA escaneará a todos los usuarios.',
+              '✅ Trusted Roles Cleared / Roles de Confianza Eliminados'
+            )]
+          });
+          logger.info(`AI moderation trusted roles cleared in guild ${guildId}`);
+          return;
+        }
+
+        if (!role) {
+          const aiConfig = await AiModerationService.getAiConfig(client, guildId);
+          const currentRoles = aiConfig.trustedRoles || [];
+          if (currentRoles.length === 0) {
+            await InteractionHelper.universalReply(interaction, {
+              embeds: [infoEmbed(
+                'No trusted roles configured. Use `/raidshield ai-trusted role:@Role` to add one.\n\nNo hay roles de confianza configurados. Usa `/raidshield ai-trusted role:@Rol` para agregar uno.',
+                'ℹ️ No Trusted Roles / Sin Roles de Confianza'
+              )]
+            });
+          } else {
+            const rolesList = currentRoles.map(id => `<@&${id}>`).join(', ');
+            await InteractionHelper.universalReply(interaction, {
+              embeds: [infoEmbed(
+                `**Trusted Roles / Roles de Confianza:**\n${rolesList}\n\nUsers with these roles bypass AI moderation.\nUsuarios con estos roles evitan la moderación de IA.`,
+                '📋 Current Trusted Roles / Roles de Confianza Actuales'
+              )]
+            });
+          }
+          return;
+        }
+
+        const aiConfig = await AiModerationService.getAiConfig(client, guildId);
+        const currentTrusted = aiConfig.trustedRoles || [];
+
+        if (remove) {
+          const newTrusted = currentTrusted.filter(id => id !== role.id);
+          if (newTrusted.length === currentTrusted.length) {
+            await InteractionHelper.universalReply(interaction, {
+              embeds: [infoEmbed(
+                `${role} is not in the trusted roles list.\n\n${role} no está en la lista de roles de confianza.`,
+                'ℹ️ Role Not Found / Rol No Encontrado'
+              )]
+            });
+            return;
+          }
+          await AiModerationService.saveAiConfig(client, guildId, { trustedRoles: newTrusted });
+          await InteractionHelper.universalReply(interaction, {
+            embeds: [successEmbed(
+              `${role} removed from AI moderation trusted roles.\n\n${role} eliminado de los roles de confianza de moderación IA.`,
+              '✅ Role Removed / Rol Eliminado'
+            )]
+          });
+          logger.info(`AI moderation trusted role ${role.id} removed in guild ${guildId}`);
+        } else {
+          if (currentTrusted.includes(role.id)) {
+            await InteractionHelper.universalReply(interaction, {
+              embeds: [infoEmbed(
+                `${role} is already a trusted role.\n\n${role} ya es un rol de confianza.`,
+                'ℹ️ Already Trusted / Ya es de Confianza'
+              )]
+            });
+            return;
+          }
+          const newTrusted = [...currentTrusted, role.id];
+          await AiModerationService.saveAiConfig(client, guildId, { trustedRoles: newTrusted });
+          await InteractionHelper.universalReply(interaction, {
+            embeds: [successEmbed(
+              `${role} added to AI moderation trusted roles. Users with this role will bypass AI scanning.\n\n${role} agregado a los roles de confianza de moderación IA. Usuarios con este rol evitarán el escaneo de IA.`,
+              '✅ Role Added / Rol Agregado'
+            )]
+          });
+          logger.info(`AI moderation trusted role ${role.id} added in guild ${guildId}`);
+        }
+        return;
+      }
+
+      if (subcommand === 'ai-context') {
+        const enabled = interaction.options.getBoolean('enabled');
+        await AiModerationService.saveAiConfig(client, guildId, { enableContext: enabled });
+
+        const statusText = enabled
+          ? 'Context-aware analysis enabled. AI will analyze recent messages for raid patterns.\n\nAnálisis con contexto activado. La IA analizará mensajes recientes para detectar patrones de raid.'
+          : 'Context-aware analysis disabled. AI will only analyze individual messages.\n\nAnálisis con contexto desactivado. La IA solo analizará mensajes individuales.';
+
+        await InteractionHelper.universalReply(interaction, {
+          embeds: [successEmbed(statusText, enabled ? '✅ Context Enabled / Contexto Activado' : '❌ Context Disabled / Contexto Desactivado')]
+        });
+        logger.info(`AI moderation context analysis ${enabled ? 'enabled' : 'disabled'} in guild ${guildId}`);
         return;
       }
 
