@@ -109,7 +109,7 @@ async function analyzeContent(text, imageUrls = []) {
       contents: [{ role: 'user', parts }],
       generationConfig: {
         maxOutputTokens: 150,
-        temperature: 0.1
+        temperature: 0.1,
         responseMimeType: "application/json"
       }
     });
