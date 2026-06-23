@@ -4,6 +4,7 @@
   "description": "Web dashboard for Nexus configuration",
   "type": "module",
   "scripts": {
+    "start": "node server/index.js",
     "dev": "concurrently \"node server/index.js\" \"vite\"",
     "server": "node server/index.js",
     "client": "vite",

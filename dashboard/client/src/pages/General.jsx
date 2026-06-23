@@ -41,7 +41,6 @@ export default function General() {
         autoRole: cfg.autoRole,
         birthdayChannelId: cfg.birthdayChannelId,
         reportChannelId: cfg.reportChannelId,
-        dmOnClose: cfg.dmOnClose,
       })
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)

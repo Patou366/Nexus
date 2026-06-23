@@ -61,17 +61,11 @@ export default function Logging() {
     setLog('enabledEvents', { ...events, [eventKey]: value })
   }
 
-  function setTicketLog(key, value) {
-    setCfg(c => ({ ...c, ticketLogging: { ...(c.ticketLogging || {}), [key]: value } }))
-    setSaved(false)
-  }
-
   async function handleSave() {
     setSaving(true)
     try {
       await saveSection('config', {
         logging: cfg.logging,
-        ticketLogging: cfg.ticketLogging,
         logIgnore: cfg.logIgnore,
       })
       setSaved(true)
@@ -87,7 +81,6 @@ export default function Logging() {
   if (loading) return <Skeleton />
 
   const logging = cfg.logging || {}
-  const ticketLogging = cfg.ticketLogging || {}
 
   return (
     <div className="max-w-2xl">
@@ -97,15 +90,6 @@ export default function Logging() {
         </Field>
         <Field label="Log Channel ID" hint="Channel where all modlog events are posted">
           <TextInput value={logging.channelId} onChange={v => setLog('channelId', v)} placeholder="Channel ID…" />
-        </Field>
-      </SectionCard>
-
-      <SectionCard title="Ticket Logging" description="Separate channels for ticket lifecycle events.">
-        <Field label="Lifecycle Channel ID" hint="Ticket open / close events">
-          <TextInput value={ticketLogging.lifecycleChannelId} onChange={v => setTicketLog('lifecycleChannelId', v)} placeholder="Channel ID…" />
-        </Field>
-        <Field label="Transcript Channel ID" hint="Where ticket transcripts are posted">
-          <TextInput value={ticketLogging.transcriptChannelId} onChange={v => setTicketLog('transcriptChannelId', v)} placeholder="Channel ID…" />
         </Field>
       </SectionCard>
 
