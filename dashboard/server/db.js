@@ -8,56 +8,42 @@ dotenv.config({ path: resolve(__dirname, '../../.env') })
 
 const { Pool } = pg
 
+const RAILWAY_PUBLIC_HOST = 'nexus-production-e63b.up.railway.app'
+
 function buildConfig() {
-  const host = process.env.POSTGRES_HOST
-  const port = parseInt(process.env.POSTGRES_PORT || '5432', 10)
-  const database = process.env.POSTGRES_DB
-  const user = process.env.POSTGRES_USER
-  const password = process.env.POSTGRES_PASSWORD
+  const privateUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL
 
-  if (host && database && user && password) {
-    const ssl = !host.includes('localhost') && !host.includes('127.0.0.1')
-      ? { rejectUnauthorized: false }
-      : false
-    console.log(`🗄️  DB: ${host}:${port}/${database}`)
-    return { host, port, database, user, password, ssl }
-  }
+  if (privateUrl) {
+    try {
+      const u = new URL(privateUrl)
+      const host = RAILWAY_PUBLIC_HOST
+      const port = parseInt(u.port || '5432', 10)
+      const database = u.pathname.replace(/^\//, '')
+      const user = decodeURIComponent(u.username)
+      const password = decodeURIComponent(u.password)
 
-  const urlCandidates = [
-    process.env.DASHBOARD_DB_URL,
-    process.env.POSTGRES_PUBLIC_URL,
-    process.env.DATABASE_PUBLIC_URL,
-    process.env.POSTGRES_URL,
-    process.env.DATABASE_URL,
-  ].filter(u => u && !u.includes('railway.internal'))
-
-  const connectionString = urlCandidates[0]
-
-  if (connectionString) {
-    const needsSsl =
-      connectionString.includes('rlwy.net') ||
-      connectionString.includes('railway.app') ||
-      connectionString.includes('supabase') ||
-      connectionString.includes('neon.tech') ||
-      connectionString.includes('amazonaws') ||
-      connectionString.includes('render.com')
-
-    try { console.log(`🗄️  DB: ${new URL(connectionString).host}`) } catch {}
-    return {
-      connectionString,
-      ssl: needsSsl ? { rejectUnauthorized: false } : false,
+      console.log(`🗄️  DB: ${host}:${port}/${database} (user: ${user})`)
+      return { host, port, database, user, password, ssl: { rejectUnauthorized: false } }
+    } catch (e) {
+      console.warn('⚠️  Could not parse POSTGRES_URL:', e.message)
     }
   }
 
-  console.warn('⚠️  No reachable database config found. Set POSTGRES_HOST / POSTGRES_URL in Replit Secrets.')
+  const explicitUrl = process.env.DASHBOARD_DB_URL || process.env.POSTGRES_PUBLIC_URL || process.env.DATABASE_PUBLIC_URL
+  if (explicitUrl) {
+    try { console.log(`🗄️  DB (url): ${new URL(explicitUrl).host}`) } catch {}
+    return { connectionString: explicitUrl, ssl: { rejectUnauthorized: false } }
+  }
+
+  console.warn('⚠️  No database credentials found. Set POSTGRES_URL in Replit Secrets.')
   return {}
 }
 
 const pool = new Pool({
   ...buildConfig(),
-  max: parseInt(process.env.POSTGRES_MAX_CONNECTIONS || '10', 10),
-  idleTimeoutMillis: parseInt(process.env.POSTGRES_IDLE_TIMEOUT || '30000', 10),
-  connectionTimeoutMillis: parseInt(process.env.POSTGRES_CONNECTION_TIMEOUT || '10000', 10),
+  max: 10,
+  idleTimeoutMillis: 30000,
+  connectionTimeoutMillis: 10000,
 })
 
 pool.on('error', (err) => {
