@@ -17,7 +17,6 @@ async function ensureWelcome(guildId) {
   )
 }
 
-
 router.get('/', async (_req, res) => {
   try {
     const result = await pool.query(
@@ -115,6 +114,78 @@ router.put('/:guildId/leveling', async (req, res, next) => {
       [guildId, JSON.stringify(merged)]
     )
     res.json(result.rows[0].leveling)
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/:guildId/joinToCreate', async (req, res, next) => {
+  try {
+    const { guildId } = req.params
+    const key = `guild:${guildId}:jointocreate`
+    const result = await pool.query(
+      `SELECT value FROM temp_data WHERE key = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+      [key]
+    )
+    res.json(result.rows.length > 0 ? result.rows[0].value : {})
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.put('/:guildId/joinToCreate', async (req, res, next) => {
+  try {
+    const { guildId } = req.params
+    const key = `guild:${guildId}:jointocreate`
+    const patch = req.body
+    const existing = await pool.query(
+      `SELECT value FROM temp_data WHERE key = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+      [key]
+    )
+    const current = existing.rows.length > 0 ? existing.rows[0].value : {}
+    const merged = { ...current, ...patch }
+    await pool.query(
+      `INSERT INTO temp_data (key, value) VALUES ($1, $2::jsonb)
+       ON CONFLICT (key) DO UPDATE SET value = $2::jsonb, expires_at = NULL`,
+      [key, JSON.stringify(merged)]
+    )
+    res.json(merged)
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/:guildId/applications', async (req, res, next) => {
+  try {
+    const { guildId } = req.params
+    const key = `guild:${guildId}:applications:settings`
+    const result = await pool.query(
+      `SELECT value FROM temp_data WHERE key = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+      [key]
+    )
+    res.json(result.rows.length > 0 ? result.rows[0].value : {})
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.put('/:guildId/applications', async (req, res, next) => {
+  try {
+    const { guildId } = req.params
+    const key = `guild:${guildId}:applications:settings`
+    const patch = req.body
+    const existing = await pool.query(
+      `SELECT value FROM temp_data WHERE key = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+      [key]
+    )
+    const current = existing.rows.length > 0 ? existing.rows[0].value : {}
+    const merged = { ...current, ...patch }
+    await pool.query(
+      `INSERT INTO temp_data (key, value) VALUES ($1, $2::jsonb)
+       ON CONFLICT (key) DO UPDATE SET value = $2::jsonb, expires_at = NULL`,
+      [key, JSON.stringify(merged)]
+    )
+    res.json(merged)
   } catch (err) {
     next(err)
   }

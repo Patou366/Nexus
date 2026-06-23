@@ -12,8 +12,14 @@ export default function JoinToCreate() {
   useEffect(() => {
     if (!selectedGuildId) return
     setLoading(true)
-    fetchSection('config')
-      .then(data => setCfg(data.joinToCreate || {}))
+    fetchSection('joinToCreate')
+      .then(data => {
+        const display = { ...data }
+        if (typeof display.bitrate === 'number') {
+          display.bitrate = Math.round(display.bitrate / 1000)
+        }
+        setCfg(display)
+      })
       .catch(console.error)
       .finally(() => setLoading(false))
     setSaved(false)
@@ -27,7 +33,9 @@ export default function JoinToCreate() {
   async function handleSave() {
     setSaving(true)
     try {
-      await saveSection('config', { joinToCreate: cfg })
+      const payload = { ...cfg }
+      payload.bitrate = (Number(payload.bitrate) || 64) * 1000
+      await saveSection('joinToCreate', payload)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (e) {
@@ -56,8 +64,8 @@ export default function JoinToCreate() {
       </SectionCard>
 
       <SectionCard title="Channel Settings" description="Template and limits for created channels.">
-        <Field label="Channel Name Template" hint="Use {user} for creator's name, {count} for auto-increment">
-          <TextInput value={cfg.channelNameTemplate} onChange={v => set('channelNameTemplate', v)} placeholder="{user}'s Channel" />
+        <Field label="Channel Name Template" hint="Use {username} for creator's name, {count} for auto-increment">
+          <TextInput value={cfg.channelNameTemplate} onChange={v => set('channelNameTemplate', v)} placeholder="{username}'s Room" />
         </Field>
         <Field label="User Limit" hint="0 = no limit">
           <input
@@ -67,7 +75,7 @@ export default function JoinToCreate() {
             className="w-24 bg-[#0f1117] border border-[#2a2d3e] text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </Field>
-        <Field label="Bitrate (kbps)">
+        <Field label="Bitrate (kbps)" hint="Voice channel audio quality — min 8, max 384">
           <input
             type="number" min="8" max="384"
             value={cfg.bitrate ?? 64}

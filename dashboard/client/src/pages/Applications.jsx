@@ -12,10 +12,7 @@ export default function Applications() {
   useEffect(() => {
     if (!selectedGuildId) return
     setLoading(true)
-    fetchSection('config')
-      .then(data => setCfg(data.applications || {}))
-      .catch(console.error)
-      .finally(() => setLoading(false))
+    fetchSection('applications').then(setCfg).catch(console.error).finally(() => setLoading(false))
     setSaved(false)
   }, [selectedGuildId])
 
@@ -32,7 +29,7 @@ export default function Applications() {
   async function handleSave() {
     setSaving(true)
     try {
-      await saveSection('config', { applications: cfg })
+      await saveSection('applications', cfg)
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (e) {
@@ -109,7 +106,7 @@ export default function Applications() {
         <Field label="Cooldown (hours)" hint="How long before the same user can apply again">
           <input
             type="number" min="0"
-            value={cfg.cooldown ?? 24}
+            value={cfg.cooldown ?? 7}
             onChange={e => set('cooldown', Number(e.target.value))}
             className="w-32 bg-[#0f1117] border border-[#2a2d3e] text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
