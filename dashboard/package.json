@@ -1,7 +1,7 @@
 {
   "name": "titanbot-dashboard",
   "version": "1.0.0",
-  "description": "Web dashboard for TitanBot configuration",
+  "description": "Web dashboard for Nexus configuration",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"node server/index.js\" \"vite\"",

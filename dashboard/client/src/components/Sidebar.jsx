@@ -21,7 +21,7 @@ export default function Sidebar() {
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl bg-brand-600 flex items-center justify-center text-lg">⚡</div>
           <div>
-            <p className="text-white font-semibold text-sm leading-tight">TitanBot</p>
+            <p className="text-white font-semibold text-sm leading-tight">Nexus</p>
             <p className="text-gray-500 text-xs">Dashboard</p>
           </div>
         </div>
