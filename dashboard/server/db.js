@@ -8,7 +8,7 @@ dotenv.config({ path: resolve(__dirname, '../../.env') })
 
 const { Pool } = pg
 
-const RAILWAY_PUBLIC_HOST = 'nexus-production-e63b.up.railway.app'
+const RAILWAY_PUBLIC_HOST = 'postgres-production-0b22.up.railway.app'
 
 function buildConfig() {
   const privateUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL
