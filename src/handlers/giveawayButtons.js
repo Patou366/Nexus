@@ -32,6 +32,18 @@ export const giveawayJoinHandler = {
 
             recordUserInteraction(interaction.user.id, interaction.message.id);
 
+            // Acknowledge the interaction IMMEDIATELY, before acquiring the mutex
+            // or doing any DB work. The join handler serializes clicks on the same
+            // giveaway via the mutex and performs several sequential network calls
+            // (DB read, DB write, message edit) before replying. Under load, queued
+            // clicks would otherwise blow past Discord's 3s acknowledgement window
+            // and surface as "This interaction failed". Deferring here reserves the
+            // 15-minute response window up front. (interaction.reply is patched to
+            // route to editReply once deferred, so the calls below still work.)
+            if (!interaction.deferred && !interaction.replied) {
+                await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+            }
+
             const lockKey = `giveaway:${interaction.message.id}`;
             await Mutex.runExclusive(lockKey, async () => {
                 const guildGiveaways = await getGuildGiveaways(client, interaction.guildId);
