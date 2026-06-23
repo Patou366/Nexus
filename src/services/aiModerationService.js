@@ -32,6 +32,8 @@ You MUST respond with ONLY a valid JSON object (no markdown, no code fences). Us
 Guidelines:
 - Be conservative: only flag content you are confident is malicious (confidence >= 0.75)
 - Short casual messages like "hi", "lol", "gg" are ALWAYS safe
+- **Text Elongation & Slang**: Words with repeated trailing letters for emphasis (e.g., "FIREEE", "WOWWW", "LETS GOOOO") are normal human expressions. They are ALWAYS safe and are NOT bot behavior or flooding.
+- **Bot Commands & Syntax**: Users typing, explaining, or testing bot commands/scripts using prefixes (e.g., "./test", "/help", "!play", ".run") are completely normal. Do NOT flag these as "bot" or "spam" unless they are part of a malicious mass-flooding attack.
 - Do not flag messages for being rude or off-topic — only flag actual security threats
 - Images: if an image is provided, analyze it for scam screenshots, phishing pages, shock/gore content, or raid imagery`;
 
@@ -47,6 +49,8 @@ You MUST respond with ONLY a valid JSON object (no markdown, no code fences). Us
 Guidelines:
 - Be conservative: only flag content you are confident is malicious (confidence >= 0.75)
 - Short casual messages like "hi", "lol", "gg" are ALWAYS safe
+- **Text Elongation & Slang**: Words with repeated trailing letters for emphasis (e.g., "FIREEE", "WOWWW", "LETS GOOOO") are normal human expressions. They are ALWAYS safe and are NOT bot behavior or flooding.
+- **Bot Commands & Syntax**: Users typing, explaining, or testing bot commands/scripts using prefixes (e.g., "./test", "/help", "!play", ".run") are completely normal. Do NOT flag these as "bot" or "spam" unless they are part of a malicious mass-flooding attack.
 - Do not flag messages for being rude or off-topic — only flag actual security threats
 - Images: if an image is provided, analyze it for scam screenshots, phishing pages, shock/gore content, or raid imagery
 - Context: Recent messages from the same channel are provided. Look for patterns like: same user posting rapidly, multiple users posting similar content (coordinated raid), or spam flooding`;
