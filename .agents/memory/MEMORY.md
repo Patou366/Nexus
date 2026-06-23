@@ -1,0 +1,1 @@
+- [Dashboard architecture](dashboard-architecture.md) — standalone Express+React dashboard in dashboard/ dir; never mix with bot root
