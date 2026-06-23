@@ -45,6 +45,38 @@ router.get('/', async (_req, res) => {
   }
 })
 
+// Global bot status — must be registered before /:guildId routes to avoid param capture
+router.put('/global/status', async (req, res, next) => {
+  try {
+    const { status } = req.body
+    const allowed = ['online', 'idle', 'dnd', 'invisible']
+    if (!status || !allowed.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' })
+    }
+    await pool.query(
+      `INSERT INTO temp_data (key, value) VALUES ('bot:global:status', $1::jsonb)
+       ON CONFLICT (key) DO UPDATE SET value = $1::jsonb, expires_at = NULL`,
+      [JSON.stringify({ status })]
+    )
+    notifyBot('/api/internal/status', { status })
+    res.json({ ok: true, status })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/global/status', async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT value FROM temp_data WHERE key = 'bot:global:status'`
+    )
+    const status = result.rows[0]?.value?.status || null
+    res.json({ status })
+  } catch (err) {
+    next(err)
+  }
+})
+
 router.get('/:guildId/config', async (req, res, next) => {
   try {
     const { guildId } = req.params
@@ -73,40 +105,6 @@ router.put('/:guildId/config', async (req, res, next) => {
       [guildId, JSON.stringify(guildPatch)]
     )
     res.json(result.rows[0].config)
-  } catch (err) {
-    next(err)
-  }
-})
-
-// Global bot status — not per-guild
-router.put('/global/status', async (req, res, next) => {
-  try {
-    const { status } = req.body
-    const allowed = ['online', 'idle', 'dnd', 'invisible']
-    if (!status || !allowed.includes(status)) {
-      return res.status(400).json({ error: 'Invalid status' })
-    }
-    // Persist globally so the bot can poll it
-    await pool.query(
-      `INSERT INTO temp_data (key, value) VALUES ('bot:global:status', $1::jsonb)
-       ON CONFLICT (key) DO UPDATE SET value = $1::jsonb, expires_at = NULL`,
-      [JSON.stringify({ status })]
-    )
-    // Push directly to bot for instant apply
-    notifyBot('/api/internal/status', { status })
-    res.json({ ok: true, status })
-  } catch (err) {
-    next(err)
-  }
-})
-
-router.get('/global/status', async (_req, res, next) => {
-  try {
-    const result = await pool.query(
-      `SELECT value FROM temp_data WHERE key = 'bot:global:status'`
-    )
-    const status = result.rows[0]?.value?.status || null
-    res.json({ status })
   } catch (err) {
     next(err)
   }

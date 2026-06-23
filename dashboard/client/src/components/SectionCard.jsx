@@ -48,11 +48,9 @@ export function Toggle({ value, onChange, label }) {
           className="sr-only"
         />
         <div
-          onClick={() => onChange(!checked)}
           className={`absolute inset-0 rounded-full transition-colors duration-200 ${checked ? 'bg-brand-600' : 'bg-gray-700'}`}
         />
         <span
-          onClick={() => onChange(!checked)}
           className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${checked ? 'translate-x-4' : 'translate-x-0'}`}
         />
       </div>
