@@ -3,6 +3,22 @@ import pool from '../db.js'
 
 const router = Router()
 
+const BOT_INTERNAL_URL = process.env.BOT_INTERNAL_URL || 'http://localhost:3000'
+
+async function notifyBot(path, body = {}) {
+  try {
+    const res = await fetch(`${BOT_INTERNAL_URL}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(3000),
+    })
+    if (!res.ok) console.warn(`Bot notify ${path} responded ${res.status}`)
+  } catch (err) {
+    console.warn(`Bot notify ${path} failed (bot may not be running):`, err.message)
+  }
+}
+
 async function ensureGuild(guildId) {
   await pool.query(
     `INSERT INTO guilds (id, config) VALUES ($1, '{}') ON CONFLICT (id) DO NOTHING`,
@@ -52,6 +68,8 @@ router.put('/:guildId/config', async (req, res, next) => {
        RETURNING config`,
       [guildId, JSON.stringify(patch)]
     )
+    // Push changes to the live bot
+    notifyBot('/api/internal/config-update', { guildId, config: patch })
     res.json(result.rows[0].config)
   } catch (err) {
     next(err)
@@ -81,6 +99,7 @@ router.put('/:guildId/welcome', async (req, res, next) => {
        RETURNING config`,
       [guildId, JSON.stringify(patch)]
     )
+    notifyBot('/api/internal/config-update', { guildId, config: { welcome: patch } })
     res.json(result.rows[0].config)
   } catch (err) {
     next(err)
@@ -113,6 +132,7 @@ router.put('/:guildId/leveling', async (req, res, next) => {
        RETURNING config->'leveling' AS leveling`,
       [guildId, JSON.stringify(merged)]
     )
+    notifyBot('/api/internal/config-update', { guildId, config: { leveling: merged } })
     res.json(result.rows[0].leveling)
   } catch (err) {
     next(err)

@@ -195,6 +195,48 @@ class TitanBot extends Client {
       });
     });
 
+    // Internal API: apply bot status from dashboard
+    app.use(express.json());
+
+    app.post('/api/internal/status', (req, res) => {
+      const { status } = req.body || {};
+      const allowed = ['online', 'idle', 'dnd', 'invisible'];
+      if (!status || !allowed.includes(status)) {
+        return res.status(400).json({ error: 'Invalid status. Use: online, idle, dnd, invisible' });
+      }
+      if (!this.isReady()) {
+        return res.status(503).json({ error: 'Bot not ready yet' });
+      }
+      try {
+        this.user.setPresence({ status, activities: this.config.bot.presence.activities });
+        logger.info(`Bot status updated to: ${status}`);
+        res.json({ ok: true, status });
+      } catch (err) {
+        logger.error('Failed to set bot status:', err.message);
+        res.status(500).json({ error: err.message });
+      }
+    });
+
+    // Internal API: re-apply guild config (e.g. after dashboard save)
+    app.post('/api/internal/config-update', async (req, res) => {
+      const { guildId, config: patch } = req.body || {};
+      if (!guildId) return res.status(400).json({ error: 'guildId required' });
+
+      // Apply botStatus if provided
+      if (patch?.botStatus && this.isReady()) {
+        const allowed = ['online', 'idle', 'dnd', 'invisible'];
+        const status = allowed.includes(patch.botStatus) ? patch.botStatus : 'online';
+        try {
+          this.user.setPresence({ status, activities: this.config.bot.presence.activities });
+          logger.info(`Bot status updated via dashboard to: ${status}`);
+        } catch (err) {
+          logger.warn('Could not update presence:', err.message);
+        }
+      }
+
+      res.json({ ok: true, guildId });
+    });
+
     const startServer = (port, attempt = 0) => {
       let hasStartedListening = false;
       const server = app.listen(port, host, () => {
