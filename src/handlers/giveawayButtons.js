@@ -2,38 +2,31 @@ import { MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { errorEmbed, successEmbed } from '../utils/embeds.js';
 import { logger } from '../utils/logger.js';
 import { TitanBotError, ErrorTypes, handleInteractionError } from '../utils/errorHandler.js';
-import { 
-    getGuildGiveaways, 
-    saveGiveaway, 
-    isGiveawayEnded 
+import {
+    getGuildGiveaways,
+    saveGiveaway,
+    isGiveawayEnded,
 } from '../utils/giveaways.js';
 import { Mutex } from '../utils/mutex.js';
-import { 
+import {
     selectWinners,
     isUserRateLimited,
     recordUserInteraction,
     createGiveawayEmbed,
-    createGiveawayButtons
+    createGiveawayButtons,
+    checkEntryEligibility,
 } from '../services/giveawayService.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
-
-
 
 
 export const giveawayJoinHandler = {
     customId: 'giveaway_join',
     async execute(interaction, client) {
         try {
-            
             if (isUserRateLimited(interaction.user.id, interaction.message.id)) {
                 return interaction.reply({
-                    embeds: [
-                        errorEmbed(
-                            'Rate Limited',
-                            'Please wait a moment before interacting with this giveaway again.'
-                        )
-                    ],
-                    flags: MessageFlags.Ephemeral
+                    embeds: [errorEmbed('Rate Limited', 'Please wait a moment before interacting again.')],
+                    flags: MessageFlags.Ephemeral,
                 });
             }
 
@@ -53,74 +46,71 @@ export const giveawayJoinHandler = {
                     );
                 }
 
-                // Double check end status inside lock
-                const endedByTime = isGiveawayEnded(giveaway);
-                const endedByFlag = giveaway.ended || giveaway.isEnded;
-
-                if (endedByTime || endedByFlag) {
+                if (isGiveawayEnded(giveaway) || giveaway.ended || giveaway.isEnded) {
                     return interaction.reply({
-                        embeds: [
-                            errorEmbed(
-                                'Giveaway Ended',
-                                'This giveaway has already ended.'
-                            )
-                        ],
-                        flags: MessageFlags.Ephemeral
+                        embeds: [errorEmbed('Giveaway Ended', 'This giveaway has already ended.')],
+                        flags: MessageFlags.Ephemeral,
                     });
                 }
+
+                // Fetch member for role checks
+                const member = interaction.member
+                    ?? await interaction.guild.members.fetch(interaction.user.id).catch(() => null);
+
+                if (!member) {
+                    return interaction.reply({
+                        embeds: [errorEmbed('Error', 'Could not verify your server membership. Please try again.')],
+                        flags: MessageFlags.Ephemeral,
+                    });
+                }
+
+                // Role-requirement & cap check
+                const eligibility = await checkEntryEligibility(member, giveaway);
+                if (!eligibility.eligible) {
+                    return interaction.reply({
+                        embeds: [errorEmbed('Cannot Enter', eligibility.reason)],
+                        flags: MessageFlags.Ephemeral,
+                    });
+                }
+
+                // Determine ticket count (bonus role support)
+                const hasBonusRole = giveaway.bonusRoleId && member.roles.cache.has(giveaway.bonusRoleId);
+                const ticketCount = hasBonusRole ? Math.max(1, giveaway.bonusEntries ?? 2) : 1;
 
                 const participants = giveaway.participants || [];
-                const userId = interaction.user.id;
-
-                // Check if user already joined
-                if (participants.includes(userId)) {
-                    return interaction.reply({
-                        embeds: [
-                            errorEmbed(
-                                'Already Entered',
-                                'You have already entered this giveaway! 🎉'
-                            )
-                        ],
-                        flags: MessageFlags.Ephemeral
-                    });
+                for (let i = 0; i < ticketCount; i++) {
+                    participants.push(interaction.user.id);
                 }
-
-                // Atomically update participants
-                participants.push(userId);
                 giveaway.participants = participants;
 
                 await saveGiveaway(client, interaction.guildId, giveaway);
 
-                logger.debug(`User ${interaction.user.tag} joined giveaway ${interaction.message.id}`);
+                logger.debug(`${interaction.user.tag} entered giveaway ${interaction.message.id} (${ticketCount} ticket(s))`);
 
-                // Send response
                 const updatedEmbed = createGiveawayEmbed(giveaway, 'active');
-                const updatedRow = createGiveawayButtons(false);
-
                 await interaction.message.edit({
                     embeds: [updatedEmbed],
-                    components: [updatedRow]
+                    components: [createGiveawayButtons(false)],
                 });
 
+                const uniqueEntrants = new Set(participants).size;
+                const bonusLine = hasBonusRole
+                    ? `\n⭐ Bonus role detected — you have **${ticketCount} tickets** for higher odds!`
+                    : '';
+
                 await interaction.reply({
-                    embeds: [
-                        successEmbed(
-                            'Success! You have entered the giveaway! 🎉',
-                            `Good luck! There are now ${participants.length} entry/entries.`
-                        )
-                    ],
-                    flags: MessageFlags.Ephemeral
+                    embeds: [successEmbed(
+                        '🎉 You\'re in!',
+                        `Good luck, ${interaction.user}! There are now **${uniqueEntrants}** unique entrant(s).${bonusLine}`,
+                    )],
+                    flags: MessageFlags.Ephemeral,
                 });
             });
         } catch (error) {
             logger.error('Error in giveaway join handler:', error);
-            await handleInteractionError(interaction, error, {
-                type: 'button',
-                customId: 'giveaway_join',
-                handler: 'giveaway'
-            });
+            await handleInteractionError(interaction, error, { type: 'button', customId: 'giveaway_join', handler: 'giveaway' });
         }
-    }
+    },
 };
 
 

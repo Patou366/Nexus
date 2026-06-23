@@ -153,8 +153,8 @@ export default {
             return InteractionHelper.safeReply(interaction, {
                 embeds: [
                     successEmbed(
-                        "Giveaway Ended ✅",
-                        `Successfully ended the giveaway for **${updatedGiveaway.prize}** in ${channel}. Selected ${winners.length} winner(s) from ${endResult.participantCount} entries.`,
+                        'Giveaway Ended ✅',
+                        `Successfully ended **${updatedGiveaway.prize}** in ${channel}.\n**${winners.length}** winner(s) selected from **${endResult.participantCount}** unique entrant(s).`,
                     ),
                 ],
                 flags: MessageFlags.Ephemeral,

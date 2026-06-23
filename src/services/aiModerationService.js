@@ -20,40 +20,52 @@ const RETRY_BASE_DELAY_MS = 1000;
 
 const CONTEXT_MESSAGES_LIMIT = 5;
 
-const SYSTEM_PROMPT = `You are a Discord server security analyst. Your job is to classify messages and determine if they are:
-- **spam**: Unsolicited promotional messages, repetitive advertising, crypto/NFT scams, phishing links, fake giveaways
-- **bot**: Automated messages from selfbots or userbot accounts — unnatural patterns, templated messages, mass-DM style content
-- **raid**: Coordinated attack messages — hate speech, slurs, flooding, shock content, server destruction intent, mass pings, threats to the server
-- **safe**: Normal human conversation that poses no threat
+const SYSTEM_PROMPT = `You are a Discord server security analyst. Classify each message as ONE of:
+- **spam**: Unsolicited advertising, crypto/NFT scams, phishing links, pyramid schemes, fake prize claims
+- **bot**: Automated selfbot/userbot output — machine-templated text, impossible posting speed, DM-blast patterns
+- **raid**: Coordinated attacks — mass hate speech, slurs targeting a group, flooding identical content, doxxing, server-destruction threats
+- **safe**: ANY normal human conversation, including arguments, complaints, profanity, excitement, slang, questions, or off-topic chat
 
-You MUST respond with ONLY a valid JSON object (no markdown, no code fences). Use this exact format:
+You MUST respond with ONLY a valid JSON object. Format:
 {"classification":"safe|spam|bot|raid","confidence":0.0-1.0,"reason":"brief explanation"}
 
-Guidelines:
-- Be conservative: only flag content you are confident is malicious (confidence >= 0.75)
-- Short casual messages like "hi", "lol", "gg" are ALWAYS safe
-- **Text Elongation & Slang**: Words with repeated trailing letters for emphasis (e.g., "FIREEE", "WOWWW", "LETS GOOOO") are normal human expressions. They are ALWAYS safe and are NOT bot behavior or flooding.
-- **Bot Commands & Syntax**: Users typing, explaining, or testing bot commands/scripts using prefixes (e.g., "./test", "/help", "!play", ".run") are completely normal. Do NOT flag these as "bot" or "spam" unless they are part of a malicious mass-flooding attack.
-- Do not flag messages for being rude or off-topic — only flag actual security threats
-- Images: if an image is provided, analyze it for scam screenshots, phishing pages, shock/gore content, or raid imagery`;
+HARD RULES — these override everything else:
+1. DEFAULT TO SAFE. When uncertain, output safe with confidence ≤ 0.5.
+2. Confidence threshold to act is 0.90 minimum. Do NOT flag below 0.90.
+3. Casual conversation is ALWAYS safe — even if rude, controversial, heated, or contains mild profanity.
+4. Enthusiasm & slang are ALWAYS safe: "FIREEE", "WOWWW", "LETS GOOO", "omg no way", "bro fr fr", "💀💀💀".
+5. Discord bot commands are ALWAYS safe: "/help", "!play", ".rank", "$balance", "?info".
+6. Questions and complaints are ALWAYS safe: "why is this broken", "this sucks", "help me".
+7. Memes, jokes, reactions, and GIF descriptions are ALWAYS safe.
+8. Links to mainstream platforms (YouTube, Twitch, Twitter/X, TikTok, Imgur, Reddit) are ALWAYS safe.
+9. Only flag spam if a message is CLEARLY an unsolicited ad, crypto scam, or phishing attempt — not just someone mentioning crypto.
+10. Only flag bot if the message is CLEARLY machine-generated with unnatural templating — not just if someone types fast.
+11. Only flag raid if there is CLEAR coordinated hate, slurs targeting people, or explicit server-destruction content.
+12. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.`;
 
-const SYSTEM_PROMPT_WITH_CONTEXT = `You are a Discord server security analyst. Your job is to classify messages and determine if they are:
-- **spam**: Unsolicited promotional messages, repetitive advertising, crypto/NFT scams, phishing links, fake giveaways
-- **bot**: Automated messages from selfbots or userbot accounts — unnatural patterns, templated messages, mass-DM style content
-- **raid**: Coordinated attack messages — hate speech, slurs, flooding, shock content, server destruction intent, mass pings, threats to the server
-- **safe**: Normal human conversation that poses no threat
+const SYSTEM_PROMPT_WITH_CONTEXT = `You are a Discord server security analyst. Classify each message as ONE of:
+- **spam**: Unsolicited advertising, crypto/NFT scams, phishing links, pyramid schemes, fake prize claims
+- **bot**: Automated selfbot/userbot output — machine-templated text, impossible posting speed, DM-blast patterns
+- **raid**: Coordinated attacks — mass hate speech, slurs targeting a group, flooding identical content, doxxing, server-destruction threats
+- **safe**: ANY normal human conversation, including arguments, complaints, profanity, excitement, slang, questions, or off-topic chat
 
-You MUST respond with ONLY a valid JSON object (no markdown, no code fences). Use this exact format:
+You MUST respond with ONLY a valid JSON object. Format:
 {"classification":"safe|spam|bot|raid","confidence":0.0-1.0,"reason":"brief explanation"}
 
-Guidelines:
-- Be conservative: only flag content you are confident is malicious (confidence >= 0.75)
-- Short casual messages like "hi", "lol", "gg" are ALWAYS safe
-- **Text Elongation & Slang**: Words with repeated trailing letters for emphasis (e.g., "FIREEE", "WOWWW", "LETS GOOOO") are normal human expressions. They are ALWAYS safe and are NOT bot behavior or flooding.
-- **Bot Commands & Syntax**: Users typing, explaining, or testing bot commands/scripts using prefixes (e.g., "./test", "/help", "!play", ".run") are completely normal. Do NOT flag these as "bot" or "spam" unless they are part of a malicious mass-flooding attack.
-- Do not flag messages for being rude or off-topic — only flag actual security threats
-- Images: if an image is provided, analyze it for scam screenshots, phishing pages, shock/gore content, or raid imagery
-- Context: Recent messages from the same channel are provided. Look for patterns like: same user posting rapidly, multiple users posting similar content (coordinated raid), or spam flooding`;
+HARD RULES — these override everything else:
+1. DEFAULT TO SAFE. When uncertain, output safe with confidence ≤ 0.5.
+2. Confidence threshold to act is 0.90 minimum. Do NOT flag below 0.90.
+3. Casual conversation is ALWAYS safe — even if rude, controversial, heated, or contains mild profanity.
+4. Enthusiasm & slang are ALWAYS safe: "FIREEE", "WOWWW", "LETS GOOO", "omg no way", "bro fr fr", "💀💀💀".
+5. Discord bot commands are ALWAYS safe: "/help", "!play", ".rank", "$balance", "?info".
+6. Questions and complaints are ALWAYS safe: "why is this broken", "this sucks", "help me".
+7. Memes, jokes, reactions, and GIF descriptions are ALWAYS safe.
+8. Links to mainstream platforms (YouTube, Twitch, Twitter/X, TikTok, Imgur, Reddit) are ALWAYS safe.
+9. Only flag spam if a message is CLEARLY an unsolicited ad, crypto scam, or phishing attempt — not just someone mentioning crypto.
+10. Only flag bot if the message is CLEARLY machine-generated with unnatural templating — not just if someone types fast.
+11. Only flag raid if there is CLEAR coordinated hate, slurs targeting people, or explicit server-destruction content.
+12. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.
+Context rule: Recent channel messages are provided. Only upgrade a classification to raid/spam/bot if you see IDENTICAL messages from multiple accounts within seconds, or an obvious mass-flood pattern. A busy active chat is NOT a raid.`;
 
 let geminiClient = null;
 
@@ -410,7 +422,7 @@ export class AiModerationService {
       const config = await getGuildConfig(client, guildId);
       return {
         enabled: config?.raidShield?.aiModeration?.enabled ?? false,
-        confidenceThreshold: config?.raidShield?.aiModeration?.confidenceThreshold ?? 0.80,
+        confidenceThreshold: config?.raidShield?.aiModeration?.confidenceThreshold ?? 0.90,
         scanImages: config?.raidShield?.aiModeration?.scanImages ?? true,
         alertChannelId: config?.raidShield?.aiModeration?.alertChannelId ?? null,
         trustedRoles: config?.raidShield?.aiModeration?.trustedRoles ?? [],
