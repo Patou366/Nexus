@@ -171,7 +171,7 @@ function AutoRoles({ roleIds, onChange }) {
   return (
     <div className="space-y-2">
       {roleIds.map((id, i) => (
-        <div key={i} className="flex items-center gap-2">
+        <div key={`role-${i}-${id}`} className="flex items-center gap-2">
           <input
             value={id}
             onChange={e => update(i, e.target.value)}

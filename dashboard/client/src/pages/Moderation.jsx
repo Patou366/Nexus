@@ -88,14 +88,14 @@ export default function Moderation() {
       <SectionCard title="Ignore Lists" description="Users and channels exempt from automod.">
         <Field label="Ignored Users" hint="User IDs to exempt from automod (one per line)">
           <IDListTextarea
-            values={cfg.logIgnore?.users || []}
+            values={Array.isArray(cfg.logIgnore?.users) ? cfg.logIgnore.users : []}
             onChange={v => set('logIgnore', { ...(cfg.logIgnore || {}), users: v })}
             placeholder="User ID…"
           />
         </Field>
         <Field label="Ignored Channels" hint="Channel IDs exempt from automod (one per line)">
           <IDListTextarea
-            values={cfg.logIgnore?.channels || []}
+            values={Array.isArray(cfg.logIgnore?.channels) ? cfg.logIgnore.channels : []}
             onChange={v => set('logIgnore', { ...(cfg.logIgnore || {}), channels: v })}
             placeholder="Channel ID…"
           />

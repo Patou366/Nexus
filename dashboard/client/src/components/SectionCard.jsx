@@ -37,15 +37,23 @@ export function TextInput({ value, onChange, placeholder, type = 'text' }) {
 }
 
 export function Toggle({ value, onChange, label }) {
+  const checked = Boolean(value)
   return (
     <label className="flex items-center gap-3 cursor-pointer select-none">
-      <div
-        onClick={() => onChange(!value)}
-        className={`relative w-10 h-5.5 rounded-full transition-colors ${value ? 'bg-brand-600' : 'bg-gray-700'}`}
-        style={{ width: '2.5rem', height: '1.375rem' }}
-      >
+      <div className="relative shrink-0" style={{ width: '2.5rem', height: '1.375rem' }}>
+        <input
+          type="checkbox"
+          checked={checked}
+          onChange={e => onChange(e.target.checked)}
+          className="sr-only"
+        />
+        <div
+          onClick={() => onChange(!checked)}
+          className={`absolute inset-0 rounded-full transition-colors duration-200 ${checked ? 'bg-brand-600' : 'bg-gray-700'}`}
+        />
         <span
-          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-4' : 'translate-x-0'}`}
+          onClick={() => onChange(!checked)}
+          className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${checked ? 'translate-x-4' : 'translate-x-0'}`}
         />
       </div>
       {label && <span className="text-gray-300 text-sm">{label}</span>}
