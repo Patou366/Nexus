@@ -1,10 +1,11 @@
-modules = ["nodejs-20", "postgresql-16"]
+modules = ["nodejs-18", "web"]
 
 [nix]
 channel = "stable-25_05"
 
 [agent]
 expertMode = true
+stack = "BEST_EFFORT_FALLBACK"
 
 [workflows]
 runButton = "Project"
