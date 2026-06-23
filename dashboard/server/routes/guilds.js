@@ -17,12 +17,6 @@ async function ensureWelcome(guildId) {
   )
 }
 
-async function ensureLeveling(guildId) {
-  await pool.query(
-    `INSERT INTO leveling_configs (guild_id, config) VALUES ($1, '{}') ON CONFLICT (guild_id) DO NOTHING`,
-    [guildId]
-  )
-}
 
 router.get('/', async (_req, res) => {
   try {
@@ -97,9 +91,9 @@ router.put('/:guildId/welcome', async (req, res, next) => {
 router.get('/:guildId/leveling', async (req, res, next) => {
   try {
     const { guildId } = req.params
-    const result = await pool.query(`SELECT config FROM leveling_configs WHERE guild_id = $1`, [guildId])
+    const result = await pool.query(`SELECT config->'leveling' AS leveling FROM guilds WHERE id = $1`, [guildId])
     if (result.rows.length === 0) return res.json({})
-    res.json(result.rows[0].config || {})
+    res.json(result.rows[0].leveling || {})
   } catch (err) {
     next(err)
   }
@@ -109,15 +103,18 @@ router.put('/:guildId/leveling', async (req, res, next) => {
   try {
     const { guildId } = req.params
     const patch = req.body
-    await ensureLeveling(guildId)
+    await ensureGuild(guildId)
+    const existing = await pool.query(`SELECT config->'leveling' AS leveling FROM guilds WHERE id = $1`, [guildId])
+    const current = existing.rows[0]?.leveling || {}
+    const merged = { ...current, ...patch }
     const result = await pool.query(
-      `UPDATE leveling_configs
-       SET config = config || $2::jsonb, updated_at = NOW()
-       WHERE guild_id = $1
-       RETURNING config`,
-      [guildId, JSON.stringify(patch)]
+      `UPDATE guilds
+       SET config = jsonb_set(config, '{leveling}', $2::jsonb), updated_at = NOW()
+       WHERE id = $1
+       RETURNING config->'leveling' AS leveling`,
+      [guildId, JSON.stringify(merged)]
     )
-    res.json(result.rows[0].config)
+    res.json(result.rows[0].leveling)
   } catch (err) {
     next(err)
   }
