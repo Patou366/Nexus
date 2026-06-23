@@ -7,6 +7,7 @@ import { RaidDetectionService } from '../services/raidDetectionService.js';
 import { handleScamDetection } from '../services/scamDetectionService.js';
 import { AiModerationService } from '../services/aiModerationService.js';
 import { getAfk, clearAfk } from '../services/afkService.js';
+import { handleAutomodSwear } from '../services/automodSwearService.js';
 
 const MESSAGE_XP_RATE_LIMIT_ATTEMPTS = 12;
 const MESSAGE_XP_RATE_LIMIT_WINDOW_MS = 10000;
@@ -44,6 +45,9 @@ export default {
         })().catch(err => logger.debug('Error in AI moderation:', err)),
         handleAfk(message, client).catch(err =>
           logger.debug('Error in AFK handling:', err)
+        ),
+        handleAutomodSwear(message).catch(err =>
+          logger.debug('Error in automod swear handling:', err)
         )
       ]);
     } catch (error) {
