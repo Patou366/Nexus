@@ -32,7 +32,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd dashboard && node server/index.js & npx vite --port 5000 --host 0.0.0.0"
+args = "node dashboard/server/index.js & (cd dashboard && node_modules/.bin/vite)"
 waitForPort = 5000
 
 [[workflows.workflow]]
