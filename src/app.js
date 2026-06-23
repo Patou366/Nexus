@@ -286,17 +286,14 @@ class TitanBot extends Client {
     if (!this.isReady() || !this.db) return;
     try {
       const allowed = ['online', 'idle', 'dnd', 'invisible'];
-      // Check each guild's config for a botStatus value; use the first one found
-      for (const [guildId] of this.guilds.cache) {
-        const cfg = await getGuildConfig(this, guildId);
-        const status = cfg?.botStatus;
-        if (status && allowed.includes(status)) {
-          const current = this.user.presence?.status;
-          if (current !== status) {
-            this.user.setPresence({ status, activities: this.config.bot.presence.activities });
-            logger.info(`Bot status synced from DB: ${status}`);
-          }
-          break;
+      // Read from global key set by the dashboard
+      const stored = await this.db.get('bot:global:status');
+      const status = stored?.status;
+      if (status && allowed.includes(status)) {
+        const current = this.user.presence?.status;
+        if (current !== status) {
+          this.user.setPresence({ status, activities: this.config.bot.presence.activities });
+          logger.info(`Bot status synced from DB: ${status}`);
         }
       }
     } catch (err) {

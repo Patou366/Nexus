@@ -60,17 +60,53 @@ router.put('/:guildId/config', async (req, res, next) => {
   try {
     const { guildId } = req.params
     const patch = req.body
+
+    // Strip botStatus from guild config — it's global, handled separately
+    const { botStatus, ...guildPatch } = patch
+
     await ensureGuild(guildId)
     const result = await pool.query(
       `UPDATE guilds
        SET config = config || $2::jsonb, updated_at = NOW()
        WHERE id = $1
        RETURNING config`,
-      [guildId, JSON.stringify(patch)]
+      [guildId, JSON.stringify(guildPatch)]
     )
-    // Push changes to the live bot
-    notifyBot('/api/internal/config-update', { guildId, config: patch })
     res.json(result.rows[0].config)
+  } catch (err) {
+    next(err)
+  }
+})
+
+// Global bot status — not per-guild
+router.put('/global/status', async (req, res, next) => {
+  try {
+    const { status } = req.body
+    const allowed = ['online', 'idle', 'dnd', 'invisible']
+    if (!status || !allowed.includes(status)) {
+      return res.status(400).json({ error: 'Invalid status' })
+    }
+    // Persist globally so the bot can poll it
+    await pool.query(
+      `INSERT INTO temp_data (key, value) VALUES ('bot:global:status', $1::jsonb)
+       ON CONFLICT (key) DO UPDATE SET value = $1::jsonb, expires_at = NULL`,
+      [JSON.stringify({ status })]
+    )
+    // Push directly to bot for instant apply
+    notifyBot('/api/internal/status', { status })
+    res.json({ ok: true, status })
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/global/status', async (_req, res, next) => {
+  try {
+    const result = await pool.query(
+      `SELECT value FROM temp_data WHERE key = 'bot:global:status'`
+    )
+    const status = result.rows[0]?.value?.status || null
+    res.json({ status })
   } catch (err) {
     next(err)
   }

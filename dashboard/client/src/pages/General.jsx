@@ -12,6 +12,7 @@ const STATUS_OPTIONS = [
 export default function General() {
   const { fetchSection, saveSection, selectedGuildId } = useGuild()
   const [cfg, setCfg] = useState({})
+  const [botStatus, setBotStatus] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -19,7 +20,16 @@ export default function General() {
   useEffect(() => {
     if (!selectedGuildId) return
     setLoading(true)
-    fetchSection('config').then(setCfg).catch(console.error).finally(() => setLoading(false))
+    Promise.all([
+      fetchSection('config'),
+      fetch('/api/guilds/global/status').then(r => r.json()).catch(() => ({}))
+    ])
+      .then(([config, globalStatus]) => {
+        setCfg(config)
+        if (globalStatus.status) setBotStatus(globalStatus.status)
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false))
     setSaved(false)
   }, [selectedGuildId])
 
@@ -31,9 +41,9 @@ export default function General() {
   async function handleSave() {
     setSaving(true)
     try {
+      // Save guild-level config (prefix, roles, channels, etc.)
       await saveSection('config', {
         prefix: cfg.prefix,
-        botStatus: cfg.botStatus,
         accentColor: cfg.accentColor,
         modRole: cfg.modRole,
         adminRole: cfg.adminRole,
@@ -42,6 +52,15 @@ export default function General() {
         birthdayChannelId: cfg.birthdayChannelId,
         reportChannelId: cfg.reportChannelId,
       })
+      // Save bot status globally (it's not per-guild)
+      if (botStatus) {
+        const r = await fetch('/api/guilds/global/status', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: botStatus }),
+        })
+        if (!r.ok) throw new Error('Failed to save bot status')
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 3000)
     } catch (e) {
@@ -61,7 +80,7 @@ export default function General() {
           <TextInput value={cfg.prefix} onChange={v => set('prefix', v)} placeholder="!" />
         </Field>
         <Field label="Bot Status" hint="Presence shown in the member list">
-          <SelectInput value={cfg.botStatus} onChange={v => set('botStatus', v)} options={STATUS_OPTIONS} placeholder="Select status…" />
+          <SelectInput value={botStatus} onChange={v => { setBotStatus(v); setSaved(false) }} options={STATUS_OPTIONS} placeholder="Select status…" />
         </Field>
         <Field label="Accent Color" hint="Hex color used in bot embeds">
           <div className="flex items-center gap-3">
