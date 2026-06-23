@@ -8,34 +8,67 @@ dotenv.config({ path: resolve(__dirname, '../../.env') })
 
 const { Pool } = pg
 
-const RAILWAY_PUBLIC_HOST = 'postgres-production-0b22.up.railway.app'
+const PUBLIC_PORT = 48953
 
 function buildConfig() {
-  const privateUrl = process.env.POSTGRES_URL || process.env.DATABASE_URL
-
-  if (privateUrl) {
+  const publicUrl = process.env.DATABASE_PUBLIC_URL
+  if (publicUrl) {
     try {
-      const u = new URL(privateUrl)
-      const host = RAILWAY_PUBLIC_HOST
-      const port = parseInt(u.port || '5432', 10)
-      const database = u.pathname.replace(/^\//, '')
-      const user = decodeURIComponent(u.username)
-      const password = decodeURIComponent(u.password)
-
-      console.log(`🗄️  DB: ${host}:${port}/${database} (user: ${user})`)
-      return { host, port, database, user, password, ssl: { rejectUnauthorized: false } }
+      const u = new URL(publicUrl)
+      const config = {
+        host: u.hostname,
+        port: parseInt(u.port || String(PUBLIC_PORT), 10),
+        database: u.pathname.replace(/^\//, ''),
+        user: decodeURIComponent(u.username),
+        password: decodeURIComponent(u.password),
+        ssl: { rejectUnauthorized: false },
+      }
+      console.log(`🗄️  DB: ${config.host}:${config.port}/${config.database} (user: ${config.user})`)
+      return config
     } catch (e) {
-      console.warn('⚠️  Could not parse POSTGRES_URL:', e.message)
+      console.warn('⚠️  Could not parse DATABASE_PUBLIC_URL:', e.message)
     }
   }
 
-  const explicitUrl = process.env.DASHBOARD_DB_URL || process.env.POSTGRES_PUBLIC_URL || process.env.DATABASE_PUBLIC_URL
-  if (explicitUrl) {
-    try { console.log(`🗄️  DB (url): ${new URL(explicitUrl).host}`) } catch {}
-    return { connectionString: explicitUrl, ssl: { rejectUnauthorized: false } }
+  const internalUrl = process.env.DATABASE_URL || process.env.POSTGRES_URL
+  if (internalUrl) {
+    try {
+      const u = new URL(internalUrl)
+      const config = {
+        host: u.hostname,
+        port: parseInt(u.port || '5432', 10),
+        database: u.pathname.replace(/^\//, ''),
+        user: decodeURIComponent(u.username),
+        password: decodeURIComponent(u.password),
+        ssl: { rejectUnauthorized: false },
+      }
+      console.log(`🗄️  DB (internal): ${config.host}:${config.port}/${config.database}`)
+      return config
+    } catch (e) {
+      console.warn('⚠️  Could not parse DATABASE_URL:', e.message)
+    }
   }
 
-  console.warn('⚠️  No database credentials found. Set POSTGRES_URL in Replit Secrets.')
+  const pgHost = process.env.PGHOST
+  const pgUser = process.env.PGUSER
+  const pgPassword = process.env.PGPASSWORD
+  const pgDatabase = process.env.PGDATABASE
+  const pgPort = process.env.PGPORT
+
+  if (pgHost && pgUser && pgDatabase) {
+    const config = {
+      host: pgHost,
+      port: parseInt(pgPort || String(PUBLIC_PORT), 10),
+      database: pgDatabase,
+      user: pgUser,
+      password: pgPassword,
+      ssl: { rejectUnauthorized: false },
+    }
+    console.log(`🗄️  DB (pg env): ${config.host}:${config.port}/${config.database}`)
+    return config
+  }
+
+  console.warn('⚠️  No database credentials found. Set DATABASE_PUBLIC_URL in Replit Secrets.')
   return {}
 }
 
