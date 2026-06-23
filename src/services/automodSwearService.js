@@ -12,57 +12,79 @@ const triggerWords = [
   'fucker', 'fucked', 'fucking', 'fucks', 'fuckup', 'fuckoff', 'fuckboy',
   'fuckface', 'fucknut', 'fuckwit', 'clusterfuck', 'mindfuck', 'motherfucking',
   'abso-fucking-lutely', 'un-fucking-believable', 'godfuckingdamnit',
+  'fuckstick', 'fuckass', 'fuckpig', 'fuckhead', 'fuckbucket',
+  'holy-fucking-shit', 'what-the-fuck', 'shut-the-fuck-up',
 
   // Shit variants
   'shitty', 'shitter', 'shitting', 'shitbag', 'shitstorm', 'shitstain',
   'shitshow', 'bullshitter', 'horseshit', 'apeshit', 'batshit', 'dogshit',
-  'ratshit', 'chickenshit', 'pigshit', 'nutshit',
+  'ratshit', 'chickenshit', 'pigshit', 'nutshit', 'shitbird', 'shitbrick',
+  'shitface', 'shitgibbon', 'full-of-shit', 'piece-of-shit', 'shit-for-brains',
+  'shit-eating', 'shit-faced', 'shit-hole', 'shit-bag', 'holy-shit',
 
   // Ass variants
   'asses', 'asshat', 'asswipe', 'assclown', 'assbag', 'assface',
   'asshead', 'assmonger', 'ass-wipe', 'smartass', 'wiseass', 'hardass',
-  'badass', 'halfass', 'lardass', 'fatass', 'lazass', 'tightass',
-  'butthead', 'buttface', 'butthole', 'butt',
+  'badass', 'halfass', 'lardass', 'fatass', 'lazyass', 'tightass',
+  'butthead', 'buttface', 'butthole', 'butt', 'kiss-my-ass',
+  'ass-hat', 'ass-clown', 'ass-wipe', 'ass-face', 'ass-hole',
+  'get-your-ass', 'dumb-ass', 'jack-ass', 'horse-ass',
 
   // Dick variants
   'dicks', 'dickhead', 'dickface', 'dickwad', 'dickweed', 'dickbag',
-  'dickmonger', 'dickbreath', 'limp-dick',
+  'dickmonger', 'dickbreath', 'limp-dick', 'dickish', 'dick-face',
+  'dick-head', 'dick-bag', 'dick-weed', 'dick-breath',
 
   // Cock variants
   'cocks', 'cockhead', 'cocksucker', 'cockwomble', 'cockup', 'cocknugget',
+  'cock-up', 'cock-head', 'cock-sucker', 'cock-womble', 'cock-nugget',
 
   // Bitch variants
-  'bitchy', 'bitches', 'bitchin', 'son-of-a-bitch',
+  'bitchy', 'bitches', 'bitchin', 'son-of-a-bitch', 'son-of-a-gun',
+  'bitch-ass', 'little-bitch', 'basic-bitch',
 
   // Cunt variants
-  'cunts', 'cuntface', 'cuntbag',
+  'cunts', 'cuntface', 'cuntbag', 'cunt-face', 'cunt-bag',
 
   // British/international
   'wanker', 'tosser', 'twat', 'prick', 'arsehole', 'arse', 'bellend',
   'knobhead', 'knob', 'muppet', 'pillock', 'numpty', 'bollocks', 'bugger',
-  'sod', 'blimey', 'chuffing', 'git', 'numbnuts', 'divvy',
+  'sod', 'chuffing', 'git', 'numbnuts', 'divvy', 'minger', 'tosspot',
+  'twathead', 'twatface', 'manky', 'gobshite', 'eejit', 'thick',
+  'bloody-hell', 'what-the-bloody', 'daft-bastard',
 
   // Compound insults
   'douchebag', 'douche', 'scumbag', 'sleazebag', 'dirtbag', 'slimebag',
   'jagoff', 'jerkoff', 'jerk', 'jackoff', 'turd', 'turdburger', 'turdface',
-  'nitwit', 'halfwit', 'dimwit', 'fuckwit', 'shitgibbon', 'twatwaffle',
+  'nitwit', 'halfwit', 'dimwit', 'fuckwit', 'twatwaffle',
   'pissbag', 'pissy', 'pissed', 'pisser', 'crybaby', 'moron', 'idiot',
   'imbecile', 'buffoon', 'nincompoop', 'dunce', 'schmuck', 'putz',
   'doofus', 'bozo', 'clodhopper', 'numskull', 'meathead', 'blockhead',
+  'knucklehead', 'bonehead', 'pinhead', 'airhead', 'lamebrain',
+  'shit-for-brains', 'pea-brain', 'bird-brain', 'no-brain',
 
   // Slang & internet
-  'wtf', 'stfu', 'gtfo', 'omfg', 'lmfao', 'af', 'bs',
-  'deadass', 'hellhole', 'hellish', 'asshole',
+  'wtf', 'stfu', 'gtfo', 'omfg', 'lmfao', 'af', 'bs', 'pos',
+  'deadass', 'hellhole', 'hellish', 'tf', 'kys',
 
-  // Compound swears
-  'son-of-a-bitch', 'piece-of-shit', 'shit-for-brains', 'ass-hat',
-  'fuck-face', 'cock-up', 'shit-bag', 'piss-ant', 'rat-bastard',
-  'clusterfuck', 'shitfuck', 'fuckshit',
+  // Rat-bastard style compound swears
+  'son-of-a-bitch', 'rat-bastard', 'dirty-bastard', 'lazy-bastard',
+  'dumb-bastard', 'fat-bastard', 'old-bastard', 'piss-ant', 'piss-off',
+  'piss-head', 'fuck-face', 'fuck-tard', 'fuck-nugget', 'clusterfuck',
+  'shitfuck', 'fuckshit', 'go-fuck-yourself', 'go-to-hell',
+  'what-the-hell', 'holy-crap', 'oh-shit', 'damn-it', 'god-damn',
+  'god-dammit', 'jesus-christ', 'for-fucks-sake', 'what-the-shit',
+  'get-the-fuck-out', 'shut-the-hell-up', 'absolute-shit',
 
   // Additional explicit
   'whore', 'slut', 'skank', 'tramp', 'sleaze', 'perv', 'creep',
   'loser', 'reject', 'degenerate', 'lowlife', 'scoundrel', 'vermin',
-  'maggot', 'parasite', 'swine', 'pig', 'rat', 'snake', 'toad'
+  'maggot', 'parasite', 'swine', 'pond-scum', 'waste-of-space',
+  'good-for-nothing', 'piece-of-garbage', 'waste-of-air',
+
+  // Leetspeak / bypass attempts (common substitutions)
+  'f4ck', 'fück', 'sh1t', 'b1tch', 'a55', '@ss', 'a$$',
+  'f**k', 's**t', 'b**ch', 'fu*k', 'sh*t',
 ];
 
 const comebacks = [
@@ -171,8 +193,12 @@ const comebacks = [
 function containsSwear(content) {
   const lower = content.toLowerCase();
   return triggerWords.some(word => {
-    const escaped = word.replace(/[-]/g, '\\$&');
-    const regex = new RegExp(`(?<![a-z])${escaped}(?![a-z])`, 'i');
+    // 1. Escape all regex special chars (except hyphens — handled next)
+    const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    // 2. Replace hyphens with an optional separator so that
+    //    "son-of-a-bitch", "son of a bitch", and "sonofabitch" ALL match
+    const pattern = escaped.replace(/-/g, '[-\\s]?');
+    const regex = new RegExp(`(?<![a-z0-9])${pattern}(?![a-z0-9])`, 'i');
     return regex.test(lower);
   });
 }
