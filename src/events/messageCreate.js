@@ -8,6 +8,7 @@ import { handleScamDetection } from '../services/scamDetectionService.js';
 import { AiModerationService } from '../services/aiModerationService.js';
 import { getAfk, clearAfk } from '../services/afkService.js';
 import { handleAutomodSwear } from '../services/automodSwearService.js';
+import { handleJuliannaMention } from '../services/juliannaService.js';
 
 const MESSAGE_XP_RATE_LIMIT_ATTEMPTS = 12;
 const MESSAGE_XP_RATE_LIMIT_WINDOW_MS = 10000;
@@ -48,6 +49,9 @@ export default {
         ),
         handleAutomodSwear(message).catch(err =>
           logger.debug('Error in automod swear handling:', err)
+        ),
+        handleJuliannaMention(message).catch(err =>
+          logger.debug('Error in Julianna mention handler:', err)
         )
       ]);
     } catch (error) {
