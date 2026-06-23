@@ -1,6 +1,6 @@
 import { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder, AttachmentBuilder, MessageFlags } from 'discord.js';
 import { createEmbed, errorEmbed, successEmbed } from '../utils/embeds.js';
-import { createTicket, closeTicket, claimTicket, updateTicketPriority } from '../services/ticket.js';
+import { createTicket, closeTicket, claimTicket, updateTicketPriority, addTicketNote } from '../services/ticket.js';
 import { getGuildConfig } from '../services/guildConfig.js';
 import { logTicketEvent } from '../utils/ticketLogging.js';
 import { logger } from '../utils/logger.js';
@@ -742,17 +742,119 @@ const deleteTicketHandler = {
   }
 };
 
+const noteTicketHandler = {
+  name: 'ticket_note',
+  async execute(interaction, client) {
+    try {
+      if (!(await ensureGuildContext(interaction))) return;
+
+      const permissionCheck = await checkTicketPermissionWithTimeout(
+        interaction,
+        client,
+        'add a note to this ticket',
+        {},
+        2000,
+      );
+
+      if (!permissionCheck.success) {
+        if (!interaction.replied && !interaction.deferred) {
+          await interaction.reply({
+            embeds: [errorEmbed(permissionCheck.error, permissionCheck.details)],
+            flags: MessageFlags.Ephemeral,
+          });
+        }
+        return;
+      }
+
+      const modal = new ModalBuilder()
+        .setCustomId('ticket_note_modal')
+        .setTitle('Add Ticket Note');
+
+      const contentInput = new TextInputBuilder()
+        .setCustomId('content')
+        .setLabel('Note content')
+        .setStyle(TextInputStyle.Paragraph)
+        .setRequired(true)
+        .setMaxLength(1000);
+
+      const visibilityInput = new TextInputBuilder()
+        .setCustomId('internal')
+        .setLabel('Internal only? (true/false)')
+        .setStyle(TextInputStyle.Short)
+        .setRequired(false)
+        .setPlaceholder('true');
+
+      modal.addComponents(
+        new ActionRowBuilder().addComponents(contentInput),
+        new ActionRowBuilder().addComponents(visibilityInput),
+      );
+
+      await interaction.showModal(modal);
+    } catch (error) {
+      logger.error('Error in ticket_note button handler:', { error: error.message, stack: error.stack });
+      if (!interaction.replied && !interaction.deferred) {
+        await interaction.reply({
+          embeds: [errorEmbed('Error', 'An error occurred while opening the note form.')],
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+    }
+  }
+};
+
+const noteTicketModalHandler = {
+  name: 'ticket_note_modal',
+  async execute(interaction, client) {
+    try {
+      if (!(await ensureGuildContext(interaction))) return;
+
+      const content = interaction.fields.getTextInputValue('content');
+      const internalRaw = interaction.fields.getTextInputValue('internal')?.trim().toLowerCase();
+      const isInternal = internalRaw !== 'false';
+
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+
+      const result = await addTicketNote(interaction.channel, interaction.user, content, isInternal);
+
+      if (!result.success) {
+        return await interaction.editReply({
+          embeds: [errorEmbed('Could Not Add Note', result.error || 'Failed to add the note.')],
+        });
+      }
+
+      await interaction.editReply({
+        embeds: [successEmbed('Note Added', `The note has been added to the ticket.`)],
+      });
+    } catch (error) {
+      logger.error('Error in ticket_note_modal handler:', { error: error.message, stack: error.stack });
+      if (interaction.deferred) {
+        await interaction.editReply({
+          embeds: [errorEmbed('Error', 'An error occurred while adding the note.')],
+          flags: MessageFlags.Ephemeral,
+        });
+      } else if (!interaction.replied) {
+        await interaction.reply({
+          embeds: [errorEmbed('Error', 'An error occurred while adding the note.')],
+          flags: MessageFlags.Ephemeral,
+        });
+      }
+    }
+  }
+};
+
 export default createTicketHandler;
-export { 
-  createTicketModalHandler, 
+export {
+  createTicketModalHandler,
   closeTicketModalHandler,
-  closeTicketHandler, 
-  claimTicketHandler, 
+  closeTicketHandler,
+  claimTicketHandler,
   priorityTicketHandler,
   pinTicketHandler,
   unclaimTicketHandler,
   reopenTicketHandler,
-  deleteTicketHandler 
+  deleteTicketHandler,
+  noteTicketHandler,
+  noteTicketModalHandler,
 };
 
 
