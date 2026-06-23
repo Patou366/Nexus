@@ -1,3 +1,7 @@
+import { getFromDb, setInDb } from '../utils/database.js';
+
+const getSwearAutomodKey = (guildId) => `guild:${guildId}:swear_automod`;
+
 const triggerWords = [
   'fuck', 'shit', 'bitch', 'ass', 'bastard', 'damn', 'crap', 'hell',
   'piss', 'dick', 'cunt', 'cock', 'asshole', 'motherfucker', 'bullshit',
@@ -69,15 +73,44 @@ function getRandomComeback() {
   return comebacks[Math.floor(Math.random() * comebacks.length)];
 }
 
+export async function getSwearAutomodConfig(guildId) {
+  try {
+    const config = await getFromDb(getSwearAutomodKey(guildId), null);
+    return config || { enabled: false };
+  } catch {
+    return { enabled: false };
+  }
+}
+
+export async function enableSwearAutomod(guildId) {
+  try {
+    await setInDb(getSwearAutomodKey(guildId), { enabled: true, updatedAt: Date.now() });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function disableSwearAutomod(guildId) {
+  try {
+    await setInDb(getSwearAutomodKey(guildId), { enabled: false, updatedAt: Date.now() });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function handleAutomodSwear(message) {
   if (message.author.bot) return;
   if (!message.content || message.content.trim().length === 0) return;
 
+  const config = await getSwearAutomodConfig(message.guild.id);
+  if (!config.enabled) return;
+
   if (!containsSwear(message.content)) return;
 
-  const comeback = getRandomComeback();
   await message.reply({
-    content: comeback,
+    content: getRandomComeback(),
     allowedMentions: { repliedUser: true }
   }).catch(() => null);
 }
