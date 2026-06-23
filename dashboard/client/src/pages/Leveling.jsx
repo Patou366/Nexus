@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useGuild } from '../context/GuildContext.jsx'
-import { SectionCard, Field, TextInput, Toggle, SliderInput, SaveButton } from '../components/SectionCard.jsx'
+import { SectionCard, Field, TextInput, Toggle, SaveButton } from '../components/SectionCard.jsx'
 
 export default function Leveling() {
   const { fetchSection, saveSection, selectedGuildId } = useGuild()
@@ -21,6 +21,14 @@ export default function Leveling() {
     setSaved(false)
   }
 
+  function setXpRange(field, value) {
+    const current = typeof cfg.xpPerMessage === 'object' && cfg.xpPerMessage !== null
+      ? cfg.xpPerMessage
+      : { min: 15, max: 25 }
+    setCfg(c => ({ ...c, xpPerMessage: { ...current, [field]: Number(value) } }))
+    setSaved(false)
+  }
+
   async function handleSave() {
     setSaving(true)
     try {
@@ -37,6 +45,13 @@ export default function Leveling() {
   if (!selectedGuildId) return <NoGuild />
   if (loading) return <Skeleton />
 
+  const xpRange = typeof cfg.xpPerMessage === 'object' && cfg.xpPerMessage !== null
+    ? cfg.xpPerMessage
+    : { min: 15, max: 25 }
+
+  const ignoredChannels = Array.isArray(cfg.ignoredChannels) ? cfg.ignoredChannels : []
+  const ignoredRoles = Array.isArray(cfg.ignoredRoles) ? cfg.ignoredRoles : []
+
   return (
     <div className="max-w-2xl">
       <SectionCard title="Leveling System" description="Enable or disable the XP leveling system.">
@@ -45,38 +60,94 @@ export default function Leveling() {
         </Field>
       </SectionCard>
 
-      <SectionCard title="XP Settings" description="Control how much XP members earn.">
-        <Field label="XP Per Message" hint="Base XP awarded for each message sent">
-          <SliderInput value={cfg.xpPerMessage ?? 10} onChange={v => set('xpPerMessage', v)} min={1} max={100} step={1} unit=" XP" />
+      <SectionCard title="XP Settings" description="Control how much XP members earn per message.">
+        <Field label="Min XP Per Message" hint="Minimum XP awarded for each message sent">
+          <input
+            type="number"
+            min={1}
+            max={xpRange.max}
+            value={xpRange.min}
+            onChange={e => setXpRange('min', e.target.value)}
+            className="w-28 bg-[#0f1117] border border-[#2a2d3e] text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
         </Field>
-        <Field label="XP Per Minute (Voice)" hint="XP earned per minute in a voice channel">
-          <SliderInput value={cfg.xpPerMinute ?? 60} onChange={v => set('xpPerMinute', v)} min={0} max={300} step={5} unit=" XP" />
+        <Field label="Max XP Per Message" hint="Maximum XP awarded for each message sent">
+          <input
+            type="number"
+            min={xpRange.min}
+            max={1000}
+            value={xpRange.max}
+            onChange={e => setXpRange('max', e.target.value)}
+            className="w-28 bg-[#0f1117] border border-[#2a2d3e] text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
         </Field>
-        <Field label="Cooldown">
-          <Toggle value={cfg.cooldownEnabled} onChange={v => set('cooldownEnabled', v)} label="Apply per-message cooldown to prevent farming" />
-        </Field>
-        <Field label="Message Length Multiplier">
-          <Toggle value={cfg.messageLengthMultiplier} onChange={v => set('messageLengthMultiplier', v)} label="Give bonus XP for longer messages" />
+        <Field label="XP Cooldown (seconds)" hint="Seconds between XP grants for the same user (0 = no cooldown)">
+          <input
+            type="number"
+            min={0}
+            max={3600}
+            value={cfg.xpCooldown ?? 20}
+            onChange={e => set('xpCooldown', Number(e.target.value))}
+            className="w-28 bg-[#0f1117] border border-[#2a2d3e] text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500"
+          />
         </Field>
       </SectionCard>
 
       <SectionCard title="Level-Up Notifications" description="How and where level-up messages are sent.">
         <Field label="Send Level-Up Messages">
-          <Toggle value={cfg.levelUpMessages} onChange={v => set('levelUpMessages', v)} label="Notify members when they level up" />
+          <Toggle value={cfg.announceLevelUp !== false} onChange={v => set('announceLevelUp', v)} label="Notify members when they level up" />
         </Field>
-        <Field label="Level-Up Channel ID" hint="Leave blank to send in the same channel as the message">
+        <Field label="Level-Up Channel ID" hint="Leave blank to send in the same channel as the triggering message">
           <TextInput value={cfg.levelUpChannel} onChange={v => set('levelUpChannel', v)} placeholder="Channel ID… (optional)" />
+        </Field>
+        <Field label="Level-Up Message" hint="Use {user} for mention, {level} for the new level">
+          <textarea
+            value={cfg.levelUpMessage ?? ''}
+            onChange={e => set('levelUpMessage', e.target.value)}
+            placeholder="{user} has leveled up to level {level}!"
+            rows={2}
+            className="w-full bg-[#0f1117] border border-[#2a2d3e] text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder-gray-600 resize-none"
+          />
         </Field>
       </SectionCard>
 
       <SectionCard title="Role Rewards" description="Grant roles at specific levels. Format: level → Role ID.">
-        <RoleRewards roles={cfg.roles || {}} onChange={v => set('roles', v)} />
+        <RoleRewards roles={cfg.roleRewards || {}} onChange={v => set('roleRewards', v)} />
+      </SectionCard>
+
+      <SectionCard title="Ignore Lists" description="Channels and roles excluded from XP gain.">
+        <Field label="Ignored Channels" hint="Channel IDs where XP is not awarded (one per line)">
+          <IDListTextarea
+            values={ignoredChannels}
+            onChange={v => set('ignoredChannels', v)}
+            placeholder="Channel ID…"
+          />
+        </Field>
+        <Field label="Ignored Roles" hint="Role IDs that do not earn XP (one per line)">
+          <IDListTextarea
+            values={ignoredRoles}
+            onChange={v => set('ignoredRoles', v)}
+            placeholder="Role ID…"
+          />
+        </Field>
       </SectionCard>
 
       <div className="flex justify-end">
         <SaveButton onClick={handleSave} saving={saving} saved={saved} />
       </div>
     </div>
+  )
+}
+
+function IDListTextarea({ values, onChange, placeholder }) {
+  return (
+    <textarea
+      value={values.join('\n')}
+      onChange={e => onChange(e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
+      placeholder={placeholder}
+      rows={4}
+      className="w-full bg-[#0f1117] border border-[#2a2d3e] text-gray-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-500 placeholder-gray-600 resize-none font-mono"
+    />
   )
 }
 
