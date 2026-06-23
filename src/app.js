@@ -278,6 +278,30 @@ class TitanBot extends Client {
     cron.schedule('0 6 * * *', () => checkBirthdays(this));
     cron.schedule('* * * * *', () => checkGiveaways(this));
     cron.schedule('*/15 * * * *', () => this.updateAllCounters());
+    // Poll DB every 5 minutes and apply botStatus if it changed
+    cron.schedule('*/5 * * * *', () => this.syncBotStatusFromDb());
+  }
+
+  async syncBotStatusFromDb() {
+    if (!this.isReady() || !this.db) return;
+    try {
+      const allowed = ['online', 'idle', 'dnd', 'invisible'];
+      // Check each guild's config for a botStatus value; use the first one found
+      for (const [guildId] of this.guilds.cache) {
+        const cfg = await getGuildConfig(this, guildId);
+        const status = cfg?.botStatus;
+        if (status && allowed.includes(status)) {
+          const current = this.user.presence?.status;
+          if (current !== status) {
+            this.user.setPresence({ status, activities: this.config.bot.presence.activities });
+            logger.info(`Bot status synced from DB: ${status}`);
+          }
+          break;
+        }
+      }
+    } catch (err) {
+      logger.warn('Failed to sync bot status from DB:', err.message);
+    }
   }
 
   async updateAllCounters() {
