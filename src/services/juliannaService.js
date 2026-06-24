@@ -34,14 +34,6 @@ const INSULT_WORDS = [
   'i hate', 'we hate',
 ];
 
-// Phrase patterns — the insult must appear near "julianna" or her mention
-// e.g. "julianna is ugly", "fuck julianna", "julianna sucks"
-const INSULT_PHRASES = [
-  /julianna\s+is\s+(ugly|dumb|stupid|fat|trash|horrible|terrible|disgusting|useless|pathetic|annoying|irrelevant|a\s+\w+)/i,
-  /(julianna|<@!?1435792391280922708>)\s+(can\s+)?(shut\s+up|go\s+away|is\s+dead|sucks|stinks)/i,
-  /f+\s*u+\s*c+\s*k+\s+julianna/i,
-];
-
 function mentionsJulianna(content) {
   if (!content) return false;
   return (
@@ -54,11 +46,8 @@ function mentionsJulianna(content) {
 function insultsJulianna(content) {
   if (!mentionsJulianna(content)) return false;
   const lower = content.toLowerCase();
+  return INSULT_WORDS.some(word => lower.includes(word));
 
-  // Check plain insult words anywhere in the message (they already know Julianna is mentioned)
-  if (INSULT_WORDS.some(word => lower.includes(word))) return true;
-
-  return false;
 }
 
 function pickRandom(arr) {
