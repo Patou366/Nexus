@@ -170,7 +170,8 @@ function isNoOneAsked(content) {
 }
 
 function isSingleDot(content) {
-  return content.trim() === '.';
+  if (content.length > 10) return false;
+  return content.replace(/\s/g, '') === '.';
 }
 
 function isGoodBot(content) {
