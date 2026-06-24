@@ -4,8 +4,8 @@ FROM node:20-alpine
 WORKDIR /usr/src/app
 
 # Install app dependencies
-# A wildcard is used to ensure both package.json AND package-lock.json are copied
-COPY package*.json ./
+# Only copy package.json — the lockfile contains Replit-internal proxy URLs and must not be used outside Replit
+COPY package.json ./
 
 # Install only production dependencies
 RUN npm install --omit=dev
