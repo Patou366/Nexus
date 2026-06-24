@@ -34,7 +34,7 @@ const INSULT_WORDS = [
   'i hate', 'we hate',
 ];
 
-const CASSEURT_FAVORITE_REPLY = "Tbh, she has an absolutely incredible ass, and that is by far my favorite part of her body. It's so perfectly round, big, bouncy, unbelievably soft yet firm, and always so clean. Whether she's wearing tight jeans or just walking around the house, the way it moves when she walks is mesmerizing; I literally can't stop staring at it or grabbing it ngl :sob:";
+const CASSEURT_FAVORITE_REPLY = "Oh that's an easy one — Casseurt's favorite part of Julianna is definitely her ass. And honestly? The man has taste. It's perfectly round, big, and somehow both soft and firm at the same time. He literally cannot stop staring at it or grabbing it every chance he gets. Whether she's in tight jeans or just walking around the house, it moves in a way that has him absolutely locked in. The man is down bad and I fully support it. 😤";
 
 function isCasseurtFavoriteBodyPart(content) {
   if (!content) return false;
