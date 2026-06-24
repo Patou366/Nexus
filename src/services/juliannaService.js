@@ -32,8 +32,6 @@ const INSULT_WORDS = [
   'disgusting', 'annoying', 'useless', 'horrible', 'terrible', 'worst',
   'fat', 'irrelevant', 'clown', 'embarrassing', 'nasty', 'gross', 'loser',
   'shut up', 'nobody cares', 'nobody asked', 'who asked', 'i hate', 'we hate',
-  // swear words used as insults toward someone
-  'fuck', 'bitch', 'whore', 'slut', 'shit on', 'screw', 'damn her', 'hell with',
 ];
 
 // Phrase patterns — the insult must appear near "julianna" or her mention
