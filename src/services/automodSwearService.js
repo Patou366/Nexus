@@ -456,6 +456,62 @@ const wordEchoTemplates = [
   (words) => `Oh we're saying "${words}" now, dumbass? Alright then, asshole. Just know I'm fucking logging every bit of this shit for the record.`,
 ];
 
+// ── Exclamatory responses — positive/excited swearing ─────────────────────
+const exclamatoryResponses = [
+  "You're clearly hyped about something and I respect it. Still a swear. Still flagged. Calm DOWN.",
+  "Big energy. Very loud. Very sweary. Try using your words without the profanity, overachiever.",
+  "I can feel the excitement through the screen. Unfortunately so can the swear filter.",
+  "So excited you had to swear about it? Incredible. Tone it down two notches, champ.",
+  "You're not in trouble, you're just... a lot right now. Deep breath. Non-swear words exist.",
+  "The hype is valid. The language is not. Channel that energy somewhere cleaner, yeah?",
+  "Excited people swear. I get it. You still got flagged. Try 'holy moly' next time, degen.",
+  "Broooo calm down. I know it's sick but the profanity detector doesn't care how hyped you are.",
+  "This is not a calm place, clearly. And yet — swearing about it isn't the move, bestie.",
+  "Unhinged excitement with swears attached. Noted. Love the vibe, hate the vocabulary.",
+  "You typed that with your whole chest and it got you here. Worth it? Really?",
+  "The enthusiasm is sending me. The swear word is going in the log. Two different things.",
+];
+
+// ── Targeted responses — swearing directly at another user ────────────────
+const targetedResponses = [
+  "Whoa — you aimed that swear at an actual person in here. That's a different level of coward energy.",
+  "There's casual swearing and then there's pointing it at someone. You did the second one. Not cool.",
+  "You directed that profanity at another human being in this server. Bold. Embarrassing. But bold.",
+  "That swear had a target. Everyone saw it. The whole server saw it. Grow up.",
+  "Using profanity as a weapon against someone? In here? That's the weakest move you could make.",
+  "Aiming your foul mouth at another person — and doing it in public — says a lot about you. None of it good.",
+  "You swore AT someone. Not around them. AT them. That's not edgy, that's just sad.",
+  "Personal attack with profanity attached — flagged, logged, and frankly, embarrassing for you.",
+  "There are people in this server. You swore directly at one of them. What was the plan exactly?",
+  "Real brave keyboard warrior energy right there. Swearing at people from behind a screen. Classic.",
+  "That swear was pointed at someone specific and I clocked it immediately. Knock it off.",
+  "One thing to swear casually. Another thing entirely to throw it at a person. You did the second one.",
+];
+
+// ── Leet-speak bypass responses ───────────────────────────────────────────
+const leetBypassMessages = [
+  "Oh clever — you swapped some letters around. 4s and 3s and dollar signs. I still read it, genius.",
+  "L33t speak? Really? That stopped fooling anyone in 2007, dipshit. I see right through it.",
+  "You typed that with substituted characters like that would hide it. It didn't. I'm smarter than that.",
+  "Nice try with the number swap. Very creative. Very see-through. Very still flagged.",
+  "Changing letters to numbers doesn't un-say the word, dumbass. Caught. Try harder next time.",
+  "You put in genuine effort to disguise that and I respected the hustle for about 0.3 seconds. Then I decoded it.",
+  "4 = A. 3 = E. 1 = I. I have a dictionary. You have no future in cryptography.",
+  "That leetspeak substitution was adorable. Truly. And completely pointless. I got it immediately.",
+];
+
+// ── Spaced-out bypass responses ───────────────────────────────────────────
+const spacedBypassMessages = [
+  "Spacing out the letters doesn't make it not a swear word. I collapsed it back and there it was.",
+  "f u c k? s h i t? Really? You spaced it out like that would help. It didn't.",
+  "Oh you spaced the letters. Cute. My filter collapsed them right back. You've been decoded.",
+  "The ol' space-between-every-letter trick. Bold strategy. Still flagged.",
+  "You typed each letter individually like that was going to slide past me. It did not slide past me.",
+  "Spacing letters out to hide a swear is like wearing a hat as a disguise. Everyone sees through it.",
+  "Separated letters, same result. I stitched them back together in milliseconds. Flagged.",
+  "You put spaces between every letter. That is not a bypass. That is just a slow swear word.",
+];
+
 // ── Bypass detection patterns ─────────────────────────────────────────────
 const bypassPatterns = [
   // f**k / f*ck / fu*k — requires at least one symbol in position 2 or 3
@@ -481,9 +537,57 @@ const bypassPatterns = [
 ];
 
 function detectsBypass(content) {
-  // Quick pre-check: must contain a censoring symbol at all
   if (!/[*!@$#]/.test(content)) return false;
   return bypassPatterns.some(p => p.test(content));
+}
+
+// ── Leet speak normalizer ─────────────────────────────────────────────────
+const LEET_MAP = {
+  '4': 'a', '@': 'a',
+  '3': 'e',
+  '1': 'i',
+  '0': 'o',
+  '5': 's', '$': 's',
+  '7': 't',
+  '|': 'l',
+  '(': 'c',
+  'v': 'u',
+};
+
+function normalizeLeet(text) {
+  return text
+    .toLowerCase()
+    .replace(/ph/g, 'f')
+    .split('')
+    .map(c => LEET_MAP[c] ?? c)
+    .join('');
+}
+
+function detectsLeet(content) {
+  if (!/[43105$7|(v@]/.test(content)) return false;
+  const normalized = normalizeLeet(content);
+  if (normalized === content.toLowerCase()) return false;
+  return containsSwear(normalized);
+}
+
+// ── Spaced-out word detection (f u c k, f.u.c.k, f-u-c-k) ────────────────
+function detectsSpaced(content) {
+  const collapsed = content
+    .toLowerCase()
+    .replace(/\b([a-z])([\s.\-_]+[a-z]){2,}\b/g, m => m.replace(/[\s.\-_]+/g, ''));
+  if (collapsed === content.toLowerCase()) return false;
+  return containsSwear(collapsed);
+}
+
+// ── Sentiment detection ───────────────────────────────────────────────────
+const POSITIVE_SIGNALS = /\b(amazing|insane|awesome|incredible|great|love|omg|lol|haha|hilarious|no way|fr|facts|goat|fire|bussin|slay|based|unreal|wild|crazy|sick|dope|banger|legendary|lowkey|ngl|deadass|sheesh|fye|bruh|bro)\b/i;
+const EXCLAMATORY_SIGNALS = /!{2,}|[A-Z]{5,}/;
+const TARGETED_SIGNALS = /<@\d+>|you('re| are | were | will )|\byou\b.{0,15}\b(stupid|dumb|trash|worst|ugly|broke|fat|useless|pathetic)\b|\byour (ass|shit|bitch|dick|face)\b/i;
+
+function detectSentiment(content) {
+  if (TARGETED_SIGNALS.test(content)) return 'targeted';
+  if (POSITIVE_SIGNALS.test(content) || EXCLAMATORY_SIGNALS.test(content)) return 'exclamatory';
+  return 'neutral';
 }
 
 function extractSwearWords(content) {
@@ -602,8 +706,38 @@ export async function handleAutomodSwear(message) {
     return;
   }
 
+  // ── Leet-speak bypass detection (f4ck, 5h1t, phuck, fvck, etc.) ──────────
+  if (detectsLeet(content)) {
+    const reply = pickRandom(leetBypassMessages);
+    await message.reply({ content: reply, allowedMentions: { repliedUser: true } }).catch(() => null);
+    return;
+  }
+
+  // ── Spaced-out bypass detection (f u c k, f.u.c.k, f-u-c-k) ─────────────
+  if (detectsSpaced(content)) {
+    const reply = pickRandom(spacedBypassMessages);
+    await message.reply({ content: reply, allowedMentions: { repliedUser: true } }).catch(() => null);
+    return;
+  }
+
   const swearFreq = countSwears(content);
   if (swearFreq === 0) return;
+
+  // ── Sentiment detection — exclamatory vs targeted vs neutral ─────────────
+  const sentiment = detectSentiment(content);
+
+  if (sentiment === 'exclamatory') {
+    const reply = pickRandom(exclamatoryResponses);
+    await message.reply({ content: reply, allowedMentions: { repliedUser: true } }).catch(() => null);
+    return;
+  }
+
+  if (sentiment === 'targeted') {
+    const reply = pickRandom(targetedResponses);
+    await message.reply({ content: reply, allowedMentions: { repliedUser: true } }).catch(() => null);
+    await incrementHeatScore(guildId, userId, swearFreq);
+    return;
+  }
 
   // ── Gang-up check — any other user swore in this channel within 30 sec? ──
   const partnerId = getGangUpPartner(channelId, userId);
