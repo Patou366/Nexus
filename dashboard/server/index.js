@@ -19,16 +19,7 @@ if (!process.env.BOT_INTERNAL_URL) {
   console.warn('⚠️  WARNING: BOT_INTERNAL_URL not set. Bot config-sync notifications will fail.')
 }
 
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-  ? process.env.ALLOWED_ORIGINS.split(',')
-  : ['http://localhost:5000', 'http://localhost:3001']
-
-app.use(cors({
-  origin: (origin, cb) => {
-    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true)
-    cb(new Error(`CORS: origin ${origin} not allowed`))
-  }
-}))
+app.use(cors({ origin: '*' }))
 app.use(express.json())
 
 app.get('/api/health', (_req, res) => {
