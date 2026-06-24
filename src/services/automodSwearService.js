@@ -23,7 +23,29 @@ const sessionTracker = new Map();
 
 // ── Channel swear tracker for gang-up detection ──────────────────────────
 // key: channelId → { userId, timestamp }
+// key: channelId → Map<userId, timestamp>
 const channelSwearTracker = new Map();
+
+function recordChannelSwear(channelId, userId) {
+  const now = Date.now();
+  if (!channelSwearTracker.has(channelId)) channelSwearTracker.set(channelId, new Map());
+  const ch = channelSwearTracker.get(channelId);
+  // Evict expired entries so the map stays small
+  for (const [uid, ts] of ch.entries()) {
+    if (now - ts > GANG_UP_WINDOW_MS) ch.delete(uid);
+  }
+  ch.set(userId, now);
+}
+
+function getGangUpPartner(channelId, userId) {
+  const ch = channelSwearTracker.get(channelId);
+  if (!ch) return null;
+  const now = Date.now();
+  for (const [uid, ts] of ch.entries()) {
+    if (uid !== userId && now - ts <= GANG_UP_WINDOW_MS) return uid;
+  }
+  return null;
+}
 
 function getSession(guildId, userId) {
   const key = `${guildId}:${userId}`;
@@ -578,19 +600,15 @@ export async function handleAutomodSwear(message) {
   const swearFreq = countSwears(content);
   if (swearFreq === 0) return;
 
-  // ── Gang-up check — did a different user swear in this channel recently? ──
-  const now         = Date.now();
-  const lastCh      = channelSwearTracker.get(channelId);
-  const isGangUp    = lastCh && lastCh.userId !== userId && (now - lastCh.timestamp) <= GANG_UP_WINDOW_MS;
-  // Update channel tracker for this user
-  channelSwearTracker.set(channelId, { userId, timestamp: now });
+  // ── Gang-up check — any other user swore in this channel within 30 sec? ──
+  const partnerId = getGangUpPartner(channelId, userId);
+  recordChannelSwear(channelId, userId);
 
-  if (isGangUp) {
+  if (partnerId) {
     const gangMsg = pickRandom(gangUpMessages);
     await message.channel
-      .send(gangMsg(`<@${lastCh.userId}>`, `<@${userId}>`))
+      .send(gangMsg(`<@${partnerId}>`, `<@${userId}>`))
       .catch(() => null);
-    // Still fall through to normal comeback below
   }
 
   // ── Word echo — 50% of the time quote the user's own swear words back ─────
