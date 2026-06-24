@@ -8,6 +8,7 @@ import { handleScamDetection } from '../services/scamDetectionService.js';
 import { AiModerationService } from '../services/aiModerationService.js';
 import { getAfk, clearAfk } from '../services/afkService.js';
 import { handleAutomodSwear } from '../services/automodSwearService.js';
+import { handleAutoSlowmode } from '../services/autoSlowmodeService.js';
 import { handleJuliannaMention } from '../services/juliannaService.js';
 import { handleChaosTriggers } from '../services/chaosTriggerService.js';
 
@@ -50,6 +51,9 @@ export default {
         ),
         handleAutomodSwear(message).catch(err =>
           logger.debug('Error in automod swear handling:', err)
+        ),
+        handleAutoSlowmode(message).catch(err =>
+          logger.debug('Error in auto-slowmode handling:', err)
         ),
         handleJuliannaMention(message).catch(err =>
           logger.debug('Error in Julianna mention handler:', err)
