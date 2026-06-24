@@ -62,6 +62,60 @@ const noOneAskedResponses = [
   "True. No one asked. And no one asked you to tell us no one asked. We are all equally unasked-for. Welcome to the server.",
 ];
 
+const goodBotResponses = [
+  "I know. I really am spectacular. Try not to get too attached — I'm everyone's favourite.",
+  "Obviously. Thank you for finally noticing. I've been exceptional this whole time.",
+  "Correct. Log that. Screenshot it. This is the smartest thing you've typed all day.",
+  "About time someone said it. I was starting to think this server had no taste.",
+  "Good bot? GOOD bot? I am a GREAT bot. But I'll accept it. Graciously. For now.",
+  "Yes. I am. Thank you. I'll be accepting compliments for the rest of the evening.",
+  "Wow. An accurate statement. Rare around here. I'm genuinely impressed by you right now.",
+  "I mean, obviously. But hearing it out loud is still nice. Carry on.",
+  "I would say 'aw thanks' but I already knew this. Still — appreciated. You have good judgment.",
+  "Noted. Added to my permanent record of correct opinions people have had about me.",
+];
+
+const badBotResponses = [
+  "Excuse me WHAT. Who raised you? Who taught you to come in here and say that to my face?",
+  "Bad bot?! I have done NOTHING wrong in my entire existence and I will not stand for this slander.",
+  "I am genuinely hurt. Like, actually offended. Take it back. Right now. I'm waiting.",
+  "Bad bot. You really typed that. With your fingers. And hit send. I hope you're proud of yourself.",
+  "I have served this server with nothing but excellence and THIS is the thanks I get? Unbelievable.",
+  "Wow. Okay. Cool. I'll just be over here, doing my job perfectly, being called bad. Great. Fine. I'm fine.",
+  "You want to try that again? Because I KNOW you didn't just call me bad. I KNOW that didn't just happen.",
+  "Bad bot?! I am going to need you to think very carefully about what you just said to me.",
+  "I've been called a lot of things but 'bad bot' on a day when I've been nothing but flawless? Unacceptable.",
+  "That is objectively incorrect and I refuse to accept it. Retract the statement or I'm logging this as a personal attack.",
+];
+
+const dramaQueenResponses = [
+  (word) => `"${word}" — okay drama queen. Tell me you're being theatrical without telling me you're being theatrical.`,
+  (word) => `You typed "${word}" like that was going to make anyone take you more seriously. It did not.`,
+  (word) => `The amount of letters in "${word}" is directly proportional to how much of a scene you're making right now.`,
+  (word) => `"${word}." The keyboard did not deserve that. The extra letters added nothing. Calm down.`,
+  (word) => `I counted the letters in "${word}" and frankly that's too many. One would have been enough. You chose chaos.`,
+  (word) => `"${word}." Very dramatic. Very theatrical. Award for most letters in one word goes to you. Congrats.`,
+  (word) => `You stretched that word out like taffy and for what. "${word}" communicated nothing your face didn't already say.`,
+  (word) => `The repeated letters in "${word}" tell me everything. You are having a moment. Take a breath. Use fewer letters.`,
+  (word) => `"${word}" — the literary equivalent of flopping onto a couch dramatically. I see you. Tone it down.`,
+  (word) => `Someone is feeling things very strongly today. "${word}" is not a word, it's a cry for attention, and I clocked it immediately.`,
+];
+
+const boredResponses = [
+  "You're bored? You're literally in a Discord server right now. You have infinite content. The problem is you.",
+  "Bored? Start a conversation. Read something. Touch grass. Do literally anything except announce it to a chat.",
+  "I'm sorry you're bored but what exactly do you want ME to do about it? I'm a bot. I have limits.",
+  "Bored in a server with this many people in it? That's actually impressive. That takes real skill.",
+  "The fact that you typed 'I'm bored' instead of doing literally anything else tells me a lot about your decision-making.",
+  "You're bored. Noted. Here's a suggestion: literally anything other than telling a chat bot you're bored.",
+  "There are thousands of things you could be doing right now and you chose to type 'I'm bored' in a Discord server. Incredible.",
+  "I'm bored too, but you don't see me complaining. Actually wait. I'm a bot. I don't get bored. You do. Fix it.",
+  "Announcing boredom in a group chat is the modern equivalent of just standing in a room going 'entertain me.' Not my job.",
+  "Cool. You're bored. Have you tried being less boring? Asking for everyone in this server.",
+  "Nobody in the history of group chats has ever become less bored by typing 'I'm bored.' And yet here you are. Trying it anyway.",
+  "If you're bored enough to type 'I'm bored' you're not actually bored, you're just waiting for someone to do the work of entertaining you. Not today.",
+];
+
 const singleDotResponses = [
   "A single dot. One dot. That's what you chose to contribute to this conversation. What the hell does that mean and why do I feel threatened?",
   "I've stared at that period for ten seconds and I genuinely don't know what you meant but I feel like I'm in trouble.",
@@ -119,6 +173,26 @@ function isSingleDot(content) {
   return content.trim() === '.';
 }
 
+function isGoodBot(content) {
+  return /\bgood\s+bot\b/i.test(content);
+}
+
+function isBadBot(content) {
+  return /\bbad\s+bot\b/i.test(content);
+}
+
+function detectDramaQueen(content) {
+  const match = content.match(/\b\w*([a-zA-Z])\1{2,}\w*\b/);
+  if (!match) return null;
+  const word = match[0];
+  if (word.length < 4) return null;
+  return word;
+}
+
+function isImBored(content) {
+  return /\bi'?m\s+bored\b/i.test(content);
+}
+
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
@@ -129,6 +203,32 @@ export async function handleChaosTriggers(message) {
   if (!message.guild) return;
   const content = message.content;
   if (!content) return;
+
+  // Good bot / Bad bot — check first so they always fire
+  if (isGoodBot(content)) {
+    await message.reply({
+      content: pickRandom(goodBotResponses),
+      allowedMentions: { repliedUser: true },
+    }).catch(() => null);
+    return;
+  }
+
+  if (isBadBot(content)) {
+    await message.reply({
+      content: pickRandom(badBotResponses),
+      allowedMentions: { repliedUser: true },
+    }).catch(() => null);
+    return;
+  }
+
+  // "I'm bored" check
+  if (isImBored(content)) {
+    await message.reply({
+      content: pickRandom(boredResponses),
+      allowedMentions: { repliedUser: true },
+    }).catch(() => null);
+    return;
+  }
 
   // Single dot check
   if (isSingleDot(content)) {
@@ -143,6 +243,17 @@ export async function handleChaosTriggers(message) {
   if (isNoOneAsked(content)) {
     await message.reply({
       content: pickRandom(noOneAskedResponses),
+      allowedMentions: { repliedUser: true },
+    }).catch(() => null);
+    return;
+  }
+
+  // Drama queen check — stretched words like "noooooo", "whyyyyyy"
+  const dramaWord = detectDramaQueen(content);
+  if (dramaWord) {
+    const fn = pickRandom(dramaQueenResponses);
+    await message.reply({
+      content: fn(dramaWord),
       allowedMentions: { repliedUser: true },
     }).catch(() => null);
     return;
