@@ -31,15 +31,13 @@ const INSULT_WORDS = [
   'ugly', 'stupid', 'dumb', 'idiot', 'hate', 'trash', 'garbage', 'pathetic',
   'disgusting', 'annoying', 'useless', 'horrible', 'terrible', 'worst',
   'fat', 'irrelevant', 'clown', 'embarrassing', 'nasty', 'gross', 'loser',
-  'shut up', 'nobody cares', 'nobody asked', 'who asked', 'i hate', 'we hate',
+  'i hate', 'we hate',
 ];
 
 // Phrase patterns — the insult must appear near "julianna" or her mention
 // e.g. "julianna is ugly", "fuck julianna", "julianna sucks"
 const INSULT_PHRASES = [
   /julianna\s+is\s+(ugly|dumb|stupid|fat|trash|horrible|terrible|disgusting|useless|pathetic|annoying|irrelevant|a\s+\w+)/i,
-  /fuck\s+(julianna|<@!?1435792391280922708>)/i,
-  /\b(fuck|hate|screw|damn)\s+(you\s+)?julianna/i,
   /(julianna|<@!?1435792391280922708>)\s+(can\s+)?(shut\s+up|go\s+away|is\s+dead|sucks|stinks)/i,
   /f+\s*u+\s*c+\s*k+\s+julianna/i,
 ];
