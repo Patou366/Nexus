@@ -32,7 +32,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "node dashboard/server/index.js & (cd dashboard && node_modules/.bin/vite)"
+args = "npm install && (node dashboard/server/index.js & cd dashboard && ../node_modules/.bin/vite)"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -57,7 +57,3 @@ externalPort = 3001
 [[ports]]
 localPort = 5000
 externalPort = 80
-
-[[ports]]
-localPort = 5001
-externalPort = 3003
