@@ -3,13 +3,29 @@ import { logger, startupLog } from "../utils/logger.js";
 import config from "../config/application.js";
 import { reconcileReactionRoleMessages } from "../services/reactionRoleService.js";
 
+const PRESENCE_INTERVAL_MS = 10 * 60 * 1000;
+
+const presences = [
+  config.bot.presence,
+  {
+    status: "online",
+    activities: [{ name: "Casseurt is a bastard", type: 2 }],
+  },
+];
+
 export default {
   name: Events.ClientReady,
   once: true,
 
   async execute(client) {
     try {
-      client.user.setPresence(config.bot.presence);
+      client.user.setPresence(presences[0]);
+
+      let presenceIndex = 0;
+      setInterval(() => {
+        presenceIndex = (presenceIndex + 1) % presences.length;
+        client.user.setPresence(presences[presenceIndex]);
+      }, PRESENCE_INTERVAL_MS);
 
       startupLog(`Ready! Logged in as ${client.user.tag}`);
       startupLog(`Serving ${client.guilds.cache.size} guild(s)`);
