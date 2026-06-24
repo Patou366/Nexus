@@ -197,6 +197,20 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// ── Reply probabilities per trigger ──────────────────────────────────────
+const CHANCE = {
+  goodBot:      1.00,
+  badBot:       1.00,
+  bored:        1.00,
+  singleDot:    0.70,
+  noOneAsked:   0.80,
+  keyboardSmash:0.40,
+  brainrot:     0.30,
+  dramaQueen:   0.20,
+};
+
+function roll(chance) { return Math.random() < chance; }
+
 // ── Main handler ───────────────────────────────────────────────────────────
 export async function handleChaosTriggers(message) {
   if (message.author.bot) return;
@@ -204,78 +218,45 @@ export async function handleChaosTriggers(message) {
   const content = message.content;
   if (!content) return;
 
-  // Good bot / Bad bot — check first so they always fire
-  if (isGoodBot(content)) {
-    await message.reply({
-      content: pickRandom(goodBotResponses),
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+  if (isGoodBot(content) && roll(CHANCE.goodBot)) {
+    await message.reply({ content: pickRandom(goodBotResponses), allowedMentions: { repliedUser: true } }).catch(() => null);
     return;
   }
 
-  if (isBadBot(content)) {
-    await message.reply({
-      content: pickRandom(badBotResponses),
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+  if (isBadBot(content) && roll(CHANCE.badBot)) {
+    await message.reply({ content: pickRandom(badBotResponses), allowedMentions: { repliedUser: true } }).catch(() => null);
     return;
   }
 
-  // "I'm bored" check
-  if (isImBored(content)) {
-    await message.reply({
-      content: pickRandom(boredResponses),
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+  if (isImBored(content) && roll(CHANCE.bored)) {
+    await message.reply({ content: pickRandom(boredResponses), allowedMentions: { repliedUser: true } }).catch(() => null);
     return;
   }
 
-  // Single dot check
-  if (isSingleDot(content)) {
-    await message.reply({
-      content: pickRandom(singleDotResponses),
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+  if (isSingleDot(content) && roll(CHANCE.singleDot)) {
+    await message.reply({ content: pickRandom(singleDotResponses), allowedMentions: { repliedUser: true } }).catch(() => null);
     return;
   }
 
-  // "No one asked" check
-  if (isNoOneAsked(content)) {
-    await message.reply({
-      content: pickRandom(noOneAskedResponses),
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+  if (isNoOneAsked(content) && roll(CHANCE.noOneAsked)) {
+    await message.reply({ content: pickRandom(noOneAskedResponses), allowedMentions: { repliedUser: true } }).catch(() => null);
     return;
   }
 
-  // Drama queen check — stretched words like "noooooo", "whyyyyyy"
   const dramaWord = detectDramaQueen(content);
-  if (dramaWord) {
-    const fn = pickRandom(dramaQueenResponses);
-    await message.reply({
-      content: fn(dramaWord),
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+  if (dramaWord && roll(CHANCE.dramaQueen)) {
+    await message.reply({ content: pickRandom(dramaQueenResponses)(dramaWord), allowedMentions: { repliedUser: true } }).catch(() => null);
     return;
   }
 
-  // Brainrot slang check
   const brainrotWord = detectBrainrot(content);
-  if (brainrotWord) {
-    const fn = pickRandom(brainrotResponses);
-    await message.reply({
-      content: fn(brainrotWord),
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+  if (brainrotWord && roll(CHANCE.brainrot)) {
+    await message.reply({ content: pickRandom(brainrotResponses)(brainrotWord), allowedMentions: { repliedUser: true } }).catch(() => null);
     return;
   }
 
-  // Keyboard smash check
-  if (isKeyboardSmash(content)) {
-    await message.reply({
-      content: pickRandom(keyboardSmashResponses),
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+  if (isKeyboardSmash(content) && roll(CHANCE.keyboardSmash)) {
+    await message.reply({ content: pickRandom(keyboardSmashResponses), allowedMentions: { repliedUser: true } }).catch(() => null);
     return;
   }
 }
