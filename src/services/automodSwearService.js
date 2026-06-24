@@ -585,6 +585,7 @@ export async function handleAutomodSwear(message) {
   const config = await getSwearAutomodConfig(message.guild.id);
   if (!config.enabled) return;
 
+  const now       = Date.now();
   const userId    = message.author.id;
   const guildId   = message.guild.id;
   const channelId = message.channel.id;
