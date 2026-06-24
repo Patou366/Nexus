@@ -13,9 +13,17 @@ const FREQ_TIER_BUMP     = 3;              // 3+ swears in one message → bump 
 const FREQ_UNHINGED      = 5;              // 5+ swears in one message → unhinged pool
 const GRUDGE_WINDOW_MS   = 30 * 60 * 1000; // 30 min gap triggers grudge callback
 
+const GANG_UP_WINDOW_MS  = 30 * 1000;  // 30 sec window to trigger gang-up
+const WORD_ECHO_CHANCE   = 0.5;         // 50% chance to echo user's swear words
+
 // ── In-memory session tracker (resets per user per 10 min window) ─────────
 // key: `${guildId}:${userId}` → { count, windowStart }
 const sessionTracker = new Map();
+
+
+// ── Channel swear tracker for gang-up detection ──────────────────────────
+// key: channelId → { userId, timestamp }
+const channelSwearTracker = new Map();
 
 function getSession(guildId, userId) {
   const key = `${guildId}:${userId}`;
@@ -383,6 +391,71 @@ const tamePublicMessages = [
   "Right. Okay then, asshole.",
 ];
 
+// ── Gang-up messages — two users swore within 30 sec in same channel ─────
+const gangUpMessages = [
+  (a, b) => `Oh shit, we've got ${a} AND ${b} both losing their fucking minds at the same time? One of you dumbasses started this — and I'm betting it was you, ${a}. Care to explain your bullshit?`,
+  (a, b) => `HOLD ON. ${a} and ${b} are BOTH swearing right now? What the fuck is going on in here? Did you two dipshits plan this shit together or are you just both naturally this dumb?`,
+  (a, b) => `Interesting. ${a} opens their shit mouth, and then ${b} decides to join the dumbass parade. Which one of you assholes wants to explain who started this garbage?`,
+  (a, b) => `Two dumbasses, thirty seconds apart — ${a} and ${b} are clearly beefing and I'm here for this shit. ${b}, your dumbass really said 'hold my beer' and followed ${a} into this mess?`,
+  (a, b) => `Somebody call a fucking referee because ${a} and ${b} are both out here acting like complete shit-for-brains in the same channel. Who threw the first dumbass punch here, assholes?`,
+  (a, b) => `${a} set the shit off and now ${b} is jumping in? Classic fucking chaos. One of you dumbasses needs to admit they started this bullshit — and ${a}, I'm looking at your ass first.`,
+  (a, b) => `Well this is fucking delightful. ${a} and ${b} are both being absolute dumbasses right now. Is this a shit competition? Because you're both losing, assholes.`,
+  (a, b) => `BREAKING NEWS: ${a} and ${b} have both decided to act like complete dipshits within 30 seconds of each other. This is either a coincidence or these two dumbasses are absolutely beefing.`,
+  (a, b) => `I don't know what the fuck happened between ${a} and ${b} but you're BOTH acting like dumbass idiots right now. Sort your shit out — or better yet, don't, because this is fucking entertaining.`,
+  (a, b) => `${a} started some shit, and ${b}'s dumbass couldn't help but jump in. This is the most pathetic fucking beef I've seen all week and I am absolutely here for it, you two dumbass idiots.`,
+];
+
+// ── Bypass callout messages — for censored swears like f**k, sh!t, a$$ ───
+const bypassMessages = [
+  "Oh nice fucking try with the asterisks, dipshit. You think I'm too dumb to read that shit? We both know exactly what your dumbass meant, asshole.",
+  "Did you seriously just censor your own swear word, dipshit? What the fuck is that shit? I can see right through your dumbass asterisks, you absolute clown.",
+  "Aww, how fucking cute — you tried to sneak that shit past me with some stars, dumbass. That's adorable. I still heard every fucking word, asshole.",
+  "Bro used asterisks. ASTERISKS. Your dumbass really thought that shit would work, huh? Fucking adorable. I read that loud and clear, dipshit.",
+  "The audacity of your dumbass to censor your own shit and think that fools anyone. You said what you said, asshole. The asterisks don't make it less fucking offensive.",
+  "Oh I'm sorry, were those little stars supposed to hide the shit you just said, dipshit? Because your dumbass failed spectacularly at that. I fucking see you, asshole.",
+  "You put asterisks in your swear word like that shit would help, dumbass. That's like wearing a paper bag and thinking nobody can tell it's your dumbass. I still fucking heard it, asshole.",
+  "Cool shit-censoring technique, dipshit. Really fucking fooled me. Oh wait — no it didn't, dumbass. Say it with your whole chest or keep that shit in your mouth, asshole.",
+  "Your dumbass typed that with asterisks like you're being polite. You're not fucking polite, asshole. You're a dipshit who thinks symbols hide the shit they're saying. They don't.",
+  "F**k? Sh!t? A$$? Your dumbass really put in the effort to censor that shit and it still came out sounding exactly like the swearing dipshit you fucking are, asshole.",
+];
+
+// ── Word echo templates — 50% chance to quote the user's own swear back ──
+const wordEchoTemplates = [
+  (words) => `Hey dumbass, you said "${words}" out loud like that shit was acceptable. Shut your asshole mouth before someone fucking does it for you, dipshit.`,
+  (words) => `Oh? "${words}"? Your dumbass is really out here dropping that shit like it's nothing. Bold fucking move, asshole. Real fucking bold.`,
+  (words) => `Noted, dipshit — you said "${words}". I'm keeping a fucking record of every shit thing that comes out of your mouth, asshole. Keep going.`,
+  (words) => `"${words}" — really, dumbass? That's the shit you're going with? Cool fucking vocabulary, asshole. Truly impressive shit.`,
+  (words) => `I heard that shit, dipshit. You said "${words}" like your dumbass was the first person to ever fucking say it. Groundbreaking shit, asshole.`,
+  (words) => `Your dumbass just said "${words}" and I'm writing that shit down, asshole. Every fucking word. Keep talking, dipshit.`,
+  (words) => `"${words}" — classy shit, asshole. Real fucking classy. Did your dumbass practice that in the mirror or does this shit just come naturally?`,
+  (words) => `Oh we're saying "${words}" now, dumbass? Alright then, asshole. Just know I'm fucking logging every bit of this shit for the record.`,
+];
+
+// ── Bypass detection patterns ─────────────────────────────────────────────
+const bypassPatterns = [
+  /f[*@#!u][*@#!c][*@#!k]/gi,
+  /s[*@#!h][*@#!i][*@#!t]/gi,
+  /b[*@#!i][*@#!t][*@#!c][*@#!h]/gi,
+  /a[*$@#!][*$@#!]/gi,
+  /c[*@#!u][*@#!n][*@#!t]/gi,
+  /d[*@#!i][*@#!c][*@#!k]/gi,
+  /[*@#!]{2,}/gi,
+];
+
+function detectsBypass(content) {
+  return bypassPatterns.some(p => p.test(content));
+}
+
+function extractSwearWords(content) {
+  const lower = content.toLowerCase();
+  const found = [];
+  for (const word of triggerWords) {
+    const regex = new RegExp(`(?<![a-z0-9])${buildPattern(word)}(?![a-z0-9])`, 'gi');
+    if (regex.test(lower) && !found.includes(word)) found.push(word);
+  }
+  return found;
+}
+
 // ── Detection helpers ─────────────────────────────────────────────────────
 function buildPattern(word) {
   const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -475,80 +548,81 @@ export async function handleAutomodSwear(message) {
   const config = await getSwearAutomodConfig(message.guild.id);
   if (!config.enabled) return;
 
-  const swearFreq = countSwears(message.content);
+  const userId    = message.author.id;
+  const guildId   = message.guild.id;
+  const channelId = message.channel.id;
+  const content   = message.content;
+
+  // ── Bypass detection — censored swears (f**k, sh!t, a$$, etc.) ───────────
+  if (detectsBypass(content)) {
+    const reply = pickRandom(bypassMessages);
+    await message.reply({ content: reply, allowedMentions: { repliedUser: true } }).catch(() => null);
+    return;
+  }
+
+  const swearFreq = countSwears(content);
   if (swearFreq === 0) return;
 
-  const userId  = message.author.id;
-  const guildId = message.guild.id;
+  // ── Gang-up check — did a different user swear in this channel recently? ──
+  const now         = Date.now();
+  const lastCh      = channelSwearTracker.get(channelId);
+  const isGangUp    = lastCh && lastCh.userId !== userId && (now - lastCh.timestamp) <= GANG_UP_WINDOW_MS;
+  // Update channel tracker for this user
+  channelSwearTracker.set(channelId, { userId, timestamp: now });
 
-  // Snippet of current message for grudge storage (max 80 chars)
-  const snippet = message.content.slice(0, 80).replace(/\n/g, ' ');
+  if (isGangUp) {
+    const gangMsg = pickRandom(gangUpMessages);
+    await message.channel
+      .send(gangMsg(`<@${lastCh.userId}>`, `<@${userId}>`))
+      .catch(() => null);
+    // Still fall through to normal comeback below
+  }
 
-  // ── Grudge Memory check ──────────────────────────────────────────────────
-  const grudge = await getGrudge(guildId, userId);
-  const now    = Date.now();
+  // ── Word echo — 50% of the time quote the user's own swear words back ─────
+  const extracted = extractSwearWords(content);
+  if (extracted.length > 0 && Math.random() < WORD_ECHO_CHANCE) {
+    const pick  = extracted.slice(0, 2).join('" and "');
+    const tmpl  = pickRandom(wordEchoTemplates);
+    await message.reply({ content: tmpl(pick), allowedMentions: { repliedUser: true } }).catch(() => null);
+    return;
+  }
+
+  // ── Grudge Memory check ───────────────────────────────────────────────────
+  const snippet = content.slice(0, 80).replace(/\n/g, ' ');
+  const grudge  = await getGrudge(guildId, userId);
   let usedGrudge = false;
 
   if (grudge && grudge.ts && (now - grudge.ts) >= GRUDGE_WINDOW_MS) {
     const cb = pickRandom(grudgeCallbacks);
-    await message.reply({
-      content: cb(grudge.snippet),
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+    await message.reply({ content: cb(grudge.snippet), allowedMentions: { repliedUser: true } }).catch(() => null);
     usedGrudge = true;
   }
-
-  // Always update grudge with current message
   await setGrudge(guildId, userId, snippet);
-
-  // If grudge fired, skip normal tier logic
   if (usedGrudge) return;
 
-  // ── Normal tier logic ────────────────────────────────────────────────────
+  // ── Normal tier logic ─────────────────────────────────────────────────────
   const sessionCount = incrementSession(guildId, userId);
   const prevScore    = await getHeatScore(guildId, userId);
   const newScore     = await incrementHeatScore(guildId, userId, swearFreq);
+  const tier         = determineTier(sessionCount, swearFreq);
 
-  const tier = determineTier(sessionCount, swearFreq);
-
-  // ── Asymmetric DM (nuclear tier) ─────────────────────────────────────────
   if (tier === 3 || tier === 'unhinged') {
-    // Public gets a tame response
-    const publicMsg = pickRandom(tamePublicMessages);
-    await message.reply({
-      content: publicMsg,
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
-
-    // DM gets the brutal nuclear roast + an open question
-    const dmRoast   = pickRandom(brutalDmMessages);
-    const openQ     = pickRandom(openQuestions);
-    try {
-      await message.author.send(`${dmRoast}\n\n${openQ}`);
-    } catch { /* DMs closed — silently skip */ }
-
+    // Asymmetric DM — tame public, brutal private
+    await message.reply({ content: pickRandom(tamePublicMessages), allowedMentions: { repliedUser: true } }).catch(() => null);
+    const dmRoast = pickRandom(brutalDmMessages);
+    const openQ   = pickRandom(openQuestions);
+    await message.author.send(`${dmRoast}\n\n${openQ}`).catch(() => null);
   } else {
-    // ── Mild / Medium tier — normal public comeback ────────────────────────
     let comeback = getComeback(tier);
-
-    // Append open question to medium tier 50% of the time for extra provocation
-    if (tier === 2 && Math.random() < 0.5) {
-      comeback += ` ${pickRandom(openQuestions)}`;
-    }
-
-    await message.reply({
-      content: comeback,
-      allowedMentions: { repliedUser: true },
-    }).catch(() => null);
+    if (tier === 2 && Math.random() < 0.5) comeback += ` ${pickRandom(openQuestions)}`;
+    await message.reply({ content: comeback, allowedMentions: { repliedUser: true } }).catch(() => null);
   }
 
-  // ── Heat callout threshold ───────────────────────────────────────────────
+  // ── Heat callout threshold ────────────────────────────────────────────────
   const prevThreshold = Math.floor(prevScore / HEAT_CALLOUT_EVERY);
   const newThreshold  = Math.floor(newScore  / HEAT_CALLOUT_EVERY);
   if (newThreshold > prevThreshold) {
     const callout = pickRandom(calloutMessages);
-    await message.channel
-      .send(callout(`<@${userId}>`, newScore))
-      .catch(() => null);
+    await message.channel.send(callout(`<@${userId}>`, newScore)).catch(() => null);
   }
 }
