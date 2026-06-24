@@ -34,6 +34,17 @@ const INSULT_WORDS = [
   'i hate', 'we hate',
 ];
 
+const CASSEURT_FAVORITE_REPLY = "Tbh, she has an absolutely incredible ass, and that is by far my favorite part of her body. It's so perfectly round, big, bouncy, unbelievably soft yet firm, and always so clean. Whether she's wearing tight jeans or just walking around the house, the way it moves when she walks is mesmerizing; I literally can't stop staring at it or grabbing it ngl :sob:";
+
+function isCasseurtFavoriteBodyPart(content) {
+  if (!content) return false;
+  const lower = content.toLowerCase();
+  const mentionsCasseurt = lower.includes('casseurt');
+  const mentionsFavorite = lower.includes('favorite') || lower.includes('fav') || lower.includes('favourite');
+  const mentionsBody = lower.includes('body') || lower.includes('part') || lower.includes('julianna');
+  return mentionsCasseurt && mentionsFavorite && mentionsBody;
+}
+
 function mentionsJulianna(content) {
   if (!content) return false;
   return (
@@ -56,6 +67,15 @@ function pickRandom(arr) {
 
 export async function handleJuliannaMention(message) {
   if (message.author.bot) return;
+
+  if (isCasseurtFavoriteBodyPart(message.content)) {
+    await message.reply({
+      content: CASSEURT_FAVORITE_REPLY,
+      allowedMentions: { repliedUser: true },
+    }).catch(() => null);
+    return;
+  }
+
   if (!mentionsJulianna(message.content)) return;
 
   const reply = insultsJulianna(message.content)
