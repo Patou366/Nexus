@@ -267,7 +267,7 @@ async function handleSetup(interaction) {
         
         await interaction.followUp({
             embeds: [warningEmbed('Role Validation Warning', errorMsg)],
-            ephemeral: true
+            flags: 64
         });
     }
 

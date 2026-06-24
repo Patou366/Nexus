@@ -46,7 +46,7 @@ export default {
         if (!role) {
           return interaction.reply({
             content: 'Please provide a valid role.',
-            ephemeral: true,
+            flags: 64,
           });
         }
 
@@ -79,7 +79,7 @@ export default {
         } else {
           await interaction.reply({
             content: 'Failed to configure bot alerts. Please try again.',
-            ephemeral: true,
+            flags: 64,
           });
         }
       } else if (subcommand === 'disable') {
@@ -92,7 +92,7 @@ export default {
         } else {
           await interaction.reply({
             content: 'Failed to disable bot alerts. Please try again.',
-            ephemeral: true,
+            flags: 64,
           });
         }
       } else if (subcommand === 'view') {
@@ -137,7 +137,7 @@ export default {
       logger.error('Error in set-bot-alerts command:', error);
       await interaction.reply({
         content: 'An error occurred while configuring bot alerts.',
-        ephemeral: true,
+        flags: 64,
       });
     }
   },

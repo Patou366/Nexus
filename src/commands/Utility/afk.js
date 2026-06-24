@@ -22,7 +22,7 @@ export default {
       if (!interaction.guild) {
         await InteractionHelper.safeReply(interaction, {
           content: 'This command can only be used in a server.',
-          ephemeral: true
+          flags: 64
         });
         return;
       }
@@ -34,7 +34,7 @@ export default {
       if (!saved) {
         await InteractionHelper.safeReply(interaction, {
           content: 'Could not set your AFK status right now. Please try again later.',
-          ephemeral: true
+          flags: 64
         });
         return;
       }

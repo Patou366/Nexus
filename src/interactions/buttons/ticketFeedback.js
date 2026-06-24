@@ -60,7 +60,7 @@ const feedbackHandler = {
                         .setDescription('Only the ticket creator can submit feedback for this ticket.')
                         .setColor(getColor('error')),
                 ],
-                ephemeral: true,
+                flags: 64,
             });
             return;
         }

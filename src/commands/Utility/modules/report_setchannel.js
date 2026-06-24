@@ -9,7 +9,7 @@ export default {
         if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageGuild)) {
             return InteractionHelper.safeReply(interaction, {
                 embeds: [errorEmbed('Permission Denied', 'You need **Manage Server** permissions to set the report channel.')],
-                ephemeral: true,
+                flags: 64,
             });
         }
 
@@ -23,13 +23,13 @@ export default {
 
             return InteractionHelper.safeReply(interaction, {
                 embeds: [successEmbed('✅ Report Channel Set', `All new reports will now be sent to ${channel}.`)],
-                ephemeral: true,
+                flags: 64,
             });
         } catch (error) {
             logger.error('report_setchannel error:', error);
             return InteractionHelper.safeReply(interaction, {
                 embeds: [errorEmbed('Database Error', 'Could not save the channel configuration.')],
-                ephemeral: true,
+                flags: 64,
             });
         }
     },

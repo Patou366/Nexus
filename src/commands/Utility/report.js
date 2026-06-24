@@ -58,7 +58,7 @@ export default {
 
             return InteractionHelper.safeReply(interaction, {
                 embeds: [errorEmbed('Error', 'Unknown subcommand.')],
-                ephemeral: true,
+                flags: 64,
             });
         } catch (error) {
             logger.error('report command error:', error);

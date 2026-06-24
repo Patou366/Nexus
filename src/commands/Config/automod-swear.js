@@ -44,7 +44,7 @@ export default {
 
         return interaction.reply({
           content: 'Failed to enable swear automod. Please try again.',
-          ephemeral: true
+          flags: 64
         });
       }
 
@@ -64,7 +64,7 @@ export default {
 
         return interaction.reply({
           content: 'Failed to disable swear automod. Please try again.',
-          ephemeral: true
+          flags: 64
         });
       }
 
@@ -89,14 +89,14 @@ export default {
             },
             timestamp: new Date().toISOString()
           }],
-          ephemeral: true
+          flags: 64
         });
       }
     } catch (error) {
       logger.error('Error in automod-swear command:', error);
       await interaction.reply({
         content: 'An error occurred while updating the swear automod setting.',
-        ephemeral: true
+        flags: 64
       }).catch(() => null);
     }
   }

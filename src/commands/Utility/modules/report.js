@@ -7,7 +7,7 @@ import { logger } from '../../../utils/logger.js';
 
 export default {
     async execute(interaction, config, client) {
-        const deferSuccess = await InteractionHelper.safeDefer(interaction, { ephemeral: true });
+        const deferSuccess = await InteractionHelper.safeDefer(interaction, { flags: 64 });
         if (!deferSuccess) {
             logger.warn('Report interaction defer failed', { userId: interaction.user.id, guildId: interaction.guildId });
             return;

@@ -22,7 +22,7 @@ export default {
       if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
         return interaction.reply({
           content: '❌ You need **Manage Server** permissions to use this.',
-          ephemeral: true
+          flags: 64
         });
       }
 
@@ -46,7 +46,7 @@ export default {
       logger.error('Error in logging button handler:', error);
       await interaction.reply({
         content: '❌ An error occurred while processing your request.',
-        ephemeral: true
+        flags: 64
       }).catch(() => {});
     }
   }
@@ -58,7 +58,7 @@ async function handleToggle(interaction) {
     if (!eventType) {
       return interaction.reply({
         content: '❌ Invalid event type.',
-        ephemeral: true
+        flags: 64
       });
     }
 
@@ -100,7 +100,7 @@ async function handleToggle(interaction) {
     logger.error('Error toggling logging:', error);
     await interaction.reply({
       content: '❌ An error occurred while toggling logging.',
-      ephemeral: true
+      flags: 64
     });
   }
 }
@@ -118,7 +118,7 @@ async function handleRefresh(interaction) {
     logger.error('Error refreshing logging status:', error);
     await interaction.reply({
       content: '❌ An error occurred while refreshing status.',
-      ephemeral: true
+      flags: 64
     });
   }
 }
@@ -130,7 +130,7 @@ async function handleDashboardToggle(interaction) {
     // customId: log_dash_toggle:audit_enabled | log_dash_toggle:all | log_dash_toggle:category.*
     const eventType = interaction.customId.replace('log_dash_toggle:', '');
     if (!eventType) {
-      return interaction.reply({ content: '❌ Invalid event type.', ephemeral: true });
+      return interaction.reply({ content: '❌ Invalid event type.', flags: 64 });
     }
 
     const status = await getLoggingStatus(interaction.client, interaction.guildId);
@@ -151,7 +151,7 @@ async function handleDashboardToggle(interaction) {
     await interaction.update({ embeds: [embed], components });
   } catch (error) {
     logger.error('Error in dashboard toggle:', error);
-    await interaction.reply({ content: '❌ An error occurred while toggling.', ephemeral: true });
+    await interaction.reply({ content: '❌ An error occurred while toggling.', flags: 64 });
   }
 }
 
@@ -161,6 +161,6 @@ async function handleDashboardRefresh(interaction) {
     await interaction.update({ embeds: [embed], components });
   } catch (error) {
     logger.error('Error refreshing logging dashboard:', error);
-    await interaction.reply({ content: '❌ An error occurred while refreshing the dashboard.', ephemeral: true });
+    await interaction.reply({ content: '❌ An error occurred while refreshing the dashboard.', flags: 64 });
   }
 }

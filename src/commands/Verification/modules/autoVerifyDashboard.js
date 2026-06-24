@@ -177,7 +177,7 @@ export default {
                 });
             }
 
-            await InteractionHelper.safeDefer(interaction, { ephemeral: true });
+            await InteractionHelper.safeDefer(interaction, { flags: 64 });
 
             const selectMenu = buildSelectMenu(guildId);
             

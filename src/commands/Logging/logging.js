@@ -111,7 +111,7 @@ export default {
             logger.error('logging command error:', error);
             await InteractionHelper.safeReply(interaction, {
                 embeds: [errorEmbed('Error', 'An unexpected error occurred.')],
-                ephemeral: true,
+                flags: 64,
             }).catch(() => {});
         }
     },
