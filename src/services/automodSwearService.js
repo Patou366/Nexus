@@ -171,6 +171,9 @@ const triggerWords = [
   // Leetspeak / bypass attempts
   'f4ck', 'fück', 'sh1t', 'b1tch', 'a55', '@ss', 'a$$',
   'f**k', 's**t', 'b**ch', 'fu*k', 'sh*t',
+
+  // Custom
+  'clanker',
 ];
 
 // ── Tier 1 — Mild (first offense this session) ────────────────────────────
