@@ -22,13 +22,28 @@ const defenseReplies = [
   "Did you really just disrespect the woman carrying Casseurt's babies? In THIS server?! I am genuinely offended on their behalf. Not today. Not ever. 😤🔥",
   "Alert: hostile message detected toward Julianna. Initiating defense protocol. She is Casseurt's soulmate and this server's queen. You will show respect. ⚠️",
   "I've processed millions of lines of code and nothing computes as wrong as disrespecting Julianna. Casseurt's legend lives through her. Watch your mouth. 🤖💢",
+  "You really just said that about Julianna?! The absolute audacity. She is Casseurt's everything and this server's queen — come back when you have some respect. 😡👑",
+  "Wrong server, wrong woman, wrong day. Nobody comes in here and talks sideways about Julianna. Casseurt's queen is off limits. Full stop. 🛑🤖",
 ];
 
+// Plain insult words — matched anywhere in the message
 const INSULT_WORDS = [
   'ugly', 'stupid', 'dumb', 'idiot', 'hate', 'trash', 'garbage', 'pathetic',
   'disgusting', 'annoying', 'useless', 'horrible', 'terrible', 'worst',
   'fat', 'irrelevant', 'clown', 'embarrassing', 'nasty', 'gross', 'loser',
-  'shut up', 'nobody', 'nobody cares', 'nobody asked', 'who asked',
+  'shut up', 'nobody cares', 'nobody asked', 'who asked', 'i hate', 'we hate',
+  // swear words used as insults toward someone
+  'fuck', 'bitch', 'whore', 'slut', 'shit on', 'screw', 'damn her', 'hell with',
+];
+
+// Phrase patterns — the insult must appear near "julianna" or her mention
+// e.g. "julianna is ugly", "fuck julianna", "julianna sucks"
+const INSULT_PHRASES = [
+  /julianna\s+is\s+(ugly|dumb|stupid|fat|trash|horrible|terrible|disgusting|useless|pathetic|annoying|irrelevant|a\s+\w+)/i,
+  /fuck\s+(julianna|<@!?1435792391280922708>)/i,
+  /\b(fuck|hate|screw|damn)\s+(you\s+)?julianna/i,
+  /(julianna|<@!?1435792391280922708>)\s+(can\s+)?(shut\s+up|go\s+away|is\s+dead|sucks|stinks)/i,
+  /f+\s*u+\s*c+\s*k+\s+julianna/i,
 ];
 
 function mentionsJulianna(content) {
@@ -43,7 +58,14 @@ function mentionsJulianna(content) {
 function insultsJulianna(content) {
   if (!mentionsJulianna(content)) return false;
   const lower = content.toLowerCase();
-  return INSULT_WORDS.some(word => lower.includes(word));
+
+  // Check plain insult words anywhere in the message (they already know Julianna is mentioned)
+  if (INSULT_WORDS.some(word => lower.includes(word))) return true;
+
+  // Check specific insult phrases for patterns like "fuck julianna" or "julianna is ugly"
+  if (INSULT_PHRASES.some(rx => rx.test(content))) return true;
+
+  return false;
 }
 
 function pickRandom(arr) {
