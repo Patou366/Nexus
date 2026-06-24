@@ -6,11 +6,11 @@ import { reconcileReactionRoleMessages } from "../services/reactionRoleService.j
 const PRESENCE_INTERVAL_MS = 10 * 60 * 1000;
 
 const presences = [
-  config.bot.presence,
   {
     status: "online",
     activities: [{ name: "Casseurt is a bastard", type: 2 }],
   },
+  config.bot.presence,
 ];
 
 export default {
