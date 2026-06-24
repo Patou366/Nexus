@@ -58,9 +58,6 @@ function insultsJulianna(content) {
   // Check plain insult words anywhere in the message (they already know Julianna is mentioned)
   if (INSULT_WORDS.some(word => lower.includes(word))) return true;
 
-  // Check specific insult phrases for patterns like "fuck julianna" or "julianna is ugly"
-  if (INSULT_PHRASES.some(rx => rx.test(content))) return true;
-
   return false;
 }
 
