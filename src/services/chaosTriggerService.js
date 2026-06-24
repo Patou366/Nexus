@@ -203,11 +203,11 @@ const CHANCE = {
   goodBot:      1.00,
   badBot:       1.00,
   bored:        1.00,
-  singleDot:    0.70,
-  noOneAsked:   0.80,
-  keyboardSmash:0.40,
-  brainrot:     0.30,
-  dramaQueen:   0.20,
+  singleDot:    1.00,
+  noOneAsked:   1.00,
+  keyboardSmash:1.00,
+  brainrot:     1.00,
+  dramaQueen:   1.00,
 };
 
 function roll(chance) { return Math.random() < chance; }
