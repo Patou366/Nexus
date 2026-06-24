@@ -76,21 +76,33 @@ export async function handleAutomodSwear(message) {
 
   // If the bot itself is mentioned, roast the sender
   if (botMentioned) {
-    await message.reply({
+    await message.channel.send({
+      reply: { messageReference: message.id },
       content: pickRandom(selfRoastReplies)(message.author),
       allowedMentions: { repliedUser: true, users: [] },
     }).catch(() => null);
     return;
   }
 
-  // Otherwise fire if at least one other real user is mentioned
+  // Proper Discord mention of another real user
   const mentionedUsers = message.mentions.users.filter(u => !u.bot && u.id !== message.author.id);
-  if (mentionedUsers.size === 0) return;
+  if (mentionedUsers.size > 0) {
+    const target = mentionedUsers.first();
+    await message.channel.send({
+      reply: { messageReference: message.id },
+      content: pickRandom(replies)(target),
+      allowedMentions: { repliedUser: true, users: [] },
+    }).catch(() => null);
+    return;
+  }
 
-  const target = mentionedUsers.first();
-
-  await message.reply({
-    content: pickRandom(replies)(target),
-    allowedMentions: { repliedUser: true, users: [] },
-  }).catch(() => null);
+  // Plain-text @mention (user typed @name without autocomplete) + insult
+  // Check for any @ symbol in the message targeting someone
+  if (/@\S/.test(message.content)) {
+    await message.channel.send({
+      reply: { messageReference: message.id },
+      content: pickRandom(replies)(message.mentions.users.first() ?? 'them'),
+      allowedMentions: { repliedUser: true, users: [] },
+    }).catch(() => null);
+  }
 }
