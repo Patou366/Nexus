@@ -381,14 +381,14 @@ const brutalDmMessages = [
 
 // ── Tame public responses — used when the real roast goes in the DM ───────
 const tamePublicMessages = [
-  "Alright, damn. Noted. Moving the fuck on.",
-  "Sure. That shit happened.",
-  "Wow. Okay then, asshole.",
-  "Bold fucking choice. Carry on, dumbass.",
-  "Interesting shit. Very fucking interesting.",
-  "I see. Cool bullshit.",
-  "Sure thing, dipshit.",
-  "Right. Okay then, asshole.",
+  "Alright, damn. Noted. Moving the fuck on to the DM's.",
+  "Sure. That shit happened. To the DM's now.",
+  "Wow. Okay then, asshole, move the fuck on to the DM's.",
+  "Bold fucking choice. Carry on to the DM's, dumbass.",
+  "Interesting shit. Very fucking interesting to go to DM's.",
+  "I see. Cool bullshit. Come in DM's bitch ass.",
+  "Sure thing, dipshit. Come to DM's now.",
+  "Right. Okay then, asshole, come to fucking DM's.",
 ];
 
 // ── Gang-up messages — two users swore within 30 sec in same channel ─────
@@ -433,16 +433,31 @@ const wordEchoTemplates = [
 
 // ── Bypass detection patterns ─────────────────────────────────────────────
 const bypassPatterns = [
-  /f[*@#!u][*@#!c][*@#!k]/gi,
-  /s[*@#!h][*@#!i][*@#!t]/gi,
-  /b[*@#!i][*@#!t][*@#!c][*@#!h]/gi,
-  /a[*$@#!][*$@#!]/gi,
-  /c[*@#!u][*@#!n][*@#!t]/gi,
-  /d[*@#!i][*@#!c][*@#!k]/gi,
-  /[*@#!]{2,}/gi,
+  // f**k / f*ck / fu*k — requires at least one symbol in position 2 or 3
+  /f[*!@$#][uck*!@$#]k/i,
+  /fu[*!@$#]k/i,
+  // sh*t / sh!t / s**t
+  /sh[*!@$#]t/i,
+  /s[*!@$#][*!@$#]t/i,
+  // b*tch / b**ch / bi*ch
+  /b[*!@$#]tch/i,
+  /bi[*!@$#]ch/i,
+  /b[*!@$#][*!@$#]ch/i,
+  // a$$ / a** — symbol must replace letters
+  /a[*$!@#]{2}/i,
+  // c**t / cu*t
+  /cu[*!@$#]t/i,
+  /c[*!@$#][*!@$#]t/i,
+  // d**k / di*k
+  /di[*!@$#]k/i,
+  /d[*!@$#][*!@$#]k/i,
+  // @ss — @ replacing the a
+  /@ss/i,
 ];
 
 function detectsBypass(content) {
+  // Quick pre-check: must contain a censoring symbol at all
+  if (!/[*!@$#]/.test(content)) return false;
   return bypassPatterns.some(p => p.test(content));
 }
 
