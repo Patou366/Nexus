@@ -109,6 +109,7 @@ export default {
             .setDescription('The type of threat to configure')
             .setRequired(true)
             .addChoices(
+              { name: 'Scam', value: 'scam' },
               { name: 'Spam', value: 'spam' },
               { name: 'Bot', value: 'bot' },
               { name: 'Raid', value: 'raid' }
@@ -197,7 +198,7 @@ export default {
         const aiAlertCh = aiConfig.alertChannelId
           ? `<#${aiConfig.alertChannelId}>`
           : 'Same as Raid Shield / Igual que Escudo';
-        const aiActions = `Spam: ${aiConfig.actions.spam}, Bot: ${aiConfig.actions.bot}, Raid: ${aiConfig.actions.raid}`;
+        const aiActions = `Scam: ${aiConfig.actions.scam}, Spam: ${aiConfig.actions.spam}, Bot: ${aiConfig.actions.bot}, Raid: ${aiConfig.actions.raid}`;
         const aiContext = aiConfig.enableContext ? 'On / Activado' : 'Off / Desactivado';
         const trustedRolesList = aiConfig.trustedRoles?.length > 0
           ? aiConfig.trustedRoles.map(id => `<@&${id}>`).join(', ')

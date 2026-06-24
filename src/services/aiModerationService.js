@@ -21,13 +21,14 @@ const RETRY_BASE_DELAY_MS = 1000;
 const CONTEXT_MESSAGES_LIMIT = 5;
 
 const SYSTEM_PROMPT = `You are a Discord server security analyst. Classify each message as ONE of:
-- **spam**: Unsolicited advertising, crypto/NFT scams, phishing links, pyramid schemes, fake prize claims
+- **scam**: Deceptive messages targeting individuals — fake free Nitro/giveaways, impersonating staff or admins, phishing links disguised as legitimate sites, "send crypto to get more back" schemes, account-stealing attempts, fake prize DMs, impersonation of Discord itself
+- **spam**: Generic unsolicited bulk advertising — server invite spam, self-promotion, pyramid schemes, mass identical promotional messages NOT specifically targeting individual users
 - **bot**: Automated selfbot/userbot output — machine-templated text, impossible posting speed, DM-blast patterns
 - **raid**: Coordinated attacks — mass hate speech, slurs targeting a group, flooding identical content, doxxing, server-destruction threats
 - **safe**: ANY normal human conversation, including arguments, complaints, profanity, excitement, slang, questions, or off-topic chat
 
 You MUST respond with ONLY a valid JSON object. Format:
-{"classification":"safe|spam|bot|raid","confidence":0.0-1.0,"reason":"brief explanation"}
+{"classification":"safe|scam|spam|bot|raid","confidence":0.0-1.0,"reason":"brief explanation"}
 
 HARD RULES — these override everything else:
 1. DEFAULT TO SAFE. When uncertain, output safe with confidence ≤ 0.5.
@@ -38,19 +39,21 @@ HARD RULES — these override everything else:
 6. Questions and complaints are ALWAYS safe: "why is this broken", "this sucks", "help me".
 7. Memes, jokes, reactions, and GIF descriptions are ALWAYS safe.
 8. Links to mainstream platforms (YouTube, Twitch, Twitter/X, TikTok, Imgur, Reddit) are ALWAYS safe.
-9. Only flag spam if a message is CLEARLY an unsolicited ad, crypto scam, or phishing attempt — not just someone mentioning crypto.
-10. Only flag bot if the message is CLEARLY machine-generated with unnatural templating — not just if someone types fast.
-11. Only flag raid if there is CLEAR coordinated hate, slurs targeting people, or explicit server-destruction content.
-12. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.`;
+9. Only flag scam if a message is CLEARLY attempting to deceive a specific user into clicking a link, giving credentials, or sending money — not just someone mentioning crypto or prizes casually.
+10. Only flag spam if a message is CLEARLY bulk unsolicited advertising with no personal targeting — generic server invites, promotions.
+11. Only flag bot if the message is CLEARLY machine-generated with unnatural templating — not just if someone types fast.
+12. Only flag raid if there is CLEAR coordinated hate, slurs targeting people, or explicit server-destruction content.
+13. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.`;
 
 const SYSTEM_PROMPT_WITH_CONTEXT = `You are a Discord server security analyst. Classify each message as ONE of:
-- **spam**: Unsolicited advertising, crypto/NFT scams, phishing links, pyramid schemes, fake prize claims
+- **scam**: Deceptive messages targeting individuals — fake free Nitro/giveaways, impersonating staff or admins, phishing links disguised as legitimate sites, "send crypto to get more back" schemes, account-stealing attempts, fake prize DMs, impersonation of Discord itself
+- **spam**: Generic unsolicited bulk advertising — server invite spam, self-promotion, pyramid schemes, mass identical promotional messages NOT specifically targeting individual users
 - **bot**: Automated selfbot/userbot output — machine-templated text, impossible posting speed, DM-blast patterns
 - **raid**: Coordinated attacks — mass hate speech, slurs targeting a group, flooding identical content, doxxing, server-destruction threats
 - **safe**: ANY normal human conversation, including arguments, complaints, profanity, excitement, slang, questions, or off-topic chat
 
 You MUST respond with ONLY a valid JSON object. Format:
-{"classification":"safe|spam|bot|raid","confidence":0.0-1.0,"reason":"brief explanation"}
+{"classification":"safe|scam|spam|bot|raid","confidence":0.0-1.0,"reason":"brief explanation"}
 
 HARD RULES — these override everything else:
 1. DEFAULT TO SAFE. When uncertain, output safe with confidence ≤ 0.5.
@@ -61,11 +64,12 @@ HARD RULES — these override everything else:
 6. Questions and complaints are ALWAYS safe: "why is this broken", "this sucks", "help me".
 7. Memes, jokes, reactions, and GIF descriptions are ALWAYS safe.
 8. Links to mainstream platforms (YouTube, Twitch, Twitter/X, TikTok, Imgur, Reddit) are ALWAYS safe.
-9. Only flag spam if a message is CLEARLY an unsolicited ad, crypto scam, or phishing attempt — not just someone mentioning crypto.
-10. Only flag bot if the message is CLEARLY machine-generated with unnatural templating — not just if someone types fast.
-11. Only flag raid if there is CLEAR coordinated hate, slurs targeting people, or explicit server-destruction content.
-12. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.
-Context rule: Recent channel messages are provided. Only upgrade a classification to raid/spam/bot if you see IDENTICAL messages from multiple accounts within seconds, or an obvious mass-flood pattern. A busy active chat is NOT a raid.`;
+9. Only flag scam if a message is CLEARLY attempting to deceive a specific user into clicking a link, giving credentials, or sending money — not just someone mentioning crypto or prizes casually.
+10. Only flag spam if a message is CLEARLY bulk unsolicited advertising with no personal targeting — generic server invites, promotions.
+11. Only flag bot if the message is CLEARLY machine-generated with unnatural templating — not just if someone types fast.
+12. Only flag raid if there is CLEAR coordinated hate, slurs targeting people, or explicit server-destruction content.
+13. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.
+Context rule: Recent channel messages are provided. Only upgrade a classification to raid/spam/bot/scam if you see IDENTICAL messages from multiple accounts within seconds, or an obvious mass-flood pattern. A busy active chat is NOT a raid.`;
 
 let geminiClient = null;
 
@@ -356,6 +360,7 @@ async function sendAiAlert(message, client, aiResult, action, aiConfig) {
   if (!alertChannel?.isTextBased()) return;
 
   const classificationEmoji = {
+    scam: '🎣',
     spam: '📩',
     bot: '🤖',
     raid: '🚨'
@@ -428,6 +433,7 @@ export class AiModerationService {
         trustedRoles: config?.raidShield?.aiModeration?.trustedRoles ?? [],
         enableContext: config?.raidShield?.aiModeration?.enableContext ?? true,
         actions: {
+          scam: config?.raidShield?.aiModeration?.actions?.scam ?? 'quarantine',
           spam: config?.raidShield?.aiModeration?.actions?.spam ?? 'quarantine',
           bot: config?.raidShield?.aiModeration?.actions?.bot ?? 'quarantine',
           raid: config?.raidShield?.aiModeration?.actions?.raid ?? 'quarantine',
@@ -443,7 +449,7 @@ export class AiModerationService {
         alertChannelId: null,
         trustedRoles: [],
         enableContext: true,
-        actions: { spam: 'quarantine', bot: 'quarantine', raid: 'quarantine' }
+        actions: { scam: 'quarantine', spam: 'quarantine', bot: 'quarantine', raid: 'quarantine' }
       };
     }
   }
