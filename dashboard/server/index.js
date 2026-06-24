@@ -12,7 +12,23 @@ dotenv.config({ path: resolve(__dirname, '../../.env') })
 const app = express()
 const PORT = process.env.PORT || process.env.DASHBOARD_API_PORT || 3001
 
-app.use(cors({ origin: '*' }))
+if (!process.env.DATABASE_PUBLIC_URL && !process.env.DATABASE_URL && !process.env.PGHOST) {
+  console.warn('⚠️  WARNING: No database credentials found. Set DATABASE_PUBLIC_URL in Replit Secrets.')
+}
+if (!process.env.BOT_INTERNAL_URL) {
+  console.warn('⚠️  WARNING: BOT_INTERNAL_URL not set. Bot config-sync notifications will fail.')
+}
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(',')
+  : ['http://localhost:5000', 'http://localhost:3001']
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.some(o => origin.startsWith(o))) return cb(null, true)
+    cb(new Error(`CORS: origin ${origin} not allowed`))
+  }
+}))
 app.use(express.json())
 
 app.get('/api/health', (_req, res) => {

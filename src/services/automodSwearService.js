@@ -34,6 +34,7 @@ function containsInsult(text) {
 }
 
 // ── Replies ───────────────────────────────────────────────────────────────
+const replies = [
   (user) => `Whoa, did ${user} steal your lunch money or something? Chill idiot.`,
   (user) => `Sir, this is a Wendy's... let's leave ${user} out of this shit.`,
   (user) => `My sensors are detecting dangerously high salt levels bullshit towards ${user}.`,
@@ -44,6 +45,7 @@ function containsInsult(text) {
   (user) => `Don't make me get the ban hammer bastard, out to protect ${user}`,
   (user) => `Breathe in, breathe out... and leave ${user} alone, dipshit.`,
   (user) => `Whoa, save some of that aggression for matchday. Leave ${user} chilling in his shit.`
+]
 
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];

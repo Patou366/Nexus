@@ -8,7 +8,7 @@ dotenv.config({ path: resolve(__dirname, '../../.env') })
 
 const { Pool } = pg
 
-const PUBLIC_PORT = 48953
+const PUBLIC_PORT = 5432
 
 function buildConfig() {
   const publicUrl = process.env.DATABASE_PUBLIC_URL
