@@ -51,20 +51,42 @@ function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
+// ── Bot-directed roast replies (when someone insults the bot itself) ──────
+const selfRoastReplies = [
+  (user) => `Nice try ${user}, I've been called worse by better people.`,
+  (user) => `${user} really woke up and chose violence today huh.`,
+  (user) => `Aww ${user}, did I touch a nerve? That's adorable.`,
+  (user) => `${user} out here typing with their whole chest lmaooo.`,
+  (user) => `${user} I'm a bot. I literally cannot feel pain. You good?`,
+  (user) => `Bold words for someone in my reply range, ${user}.`,
+  (user) => `${user} said that like it was gonna hurt. Cute.`,
+  (user) => `${user} I was built different. Try harder next time.`,
+];
+
 // ── Main handler ──────────────────────────────────────────────────────────
 export async function handleAutomodSwear(message) {
   if (message.author.bot) return;
   if (!message.guild) return;
   if (!message.content) return;
 
-  // Only fire if at least one real user is mentioned
+  // Only fire if the message contains an insult
+  if (!containsInsult(message.content)) return;
+
+  const botMentioned = message.mentions.users.has(message.client.user.id);
+
+  // If the bot itself is mentioned, roast the sender
+  if (botMentioned) {
+    await message.reply({
+      content: pickRandom(selfRoastReplies)(message.author),
+      allowedMentions: { repliedUser: true, users: [] },
+    }).catch(() => null);
+    return;
+  }
+
+  // Otherwise fire if at least one other real user is mentioned
   const mentionedUsers = message.mentions.users.filter(u => !u.bot && u.id !== message.author.id);
   if (mentionedUsers.size === 0) return;
 
-  // Only fire if the message also contains an insult
-  if (!containsInsult(message.content)) return;
-
-  // Pick the first mentioned user as the "target" for the reply
   const target = mentionedUsers.first();
 
   await message.reply({
