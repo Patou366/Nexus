@@ -90,7 +90,7 @@ async function incrementHeatScore(guildId, userId, by = 1) {
 // ── Trigger words ─────────────────────────────────────────────────────────
 const triggerWords = [
   // Core classics
-  'fuck', 'shit', 'bitch', 'ass', 'bastard', 'damn', 'crap', 'hell',
+  'fuck', 'shit', 'bitch', 'ass', 'bastard',
   'piss', 'dick', 'cunt', 'cock', 'asshole', 'motherfucker', 'bullshit',
   'jackass', 'dumbass', 'dipshit', 'fuckhead', 'shithead',
 
@@ -159,7 +159,7 @@ const triggerWords = [
   'piss-head', 'fuck-face', 'fuck-tard', 'fuck-nugget', 'clusterfuck',
   'shitfuck', 'fuckshit', 'go-fuck-yourself', 'go-to-hell',
   'what-the-hell', 'holy-crap', 'oh-shit', 'damn-it', 'god-damn',
-  'god-dammit', 'jesus-christ', 'for-fucks-sake', 'what-the-shit',
+  'god-dammit','for-fucks-sake', 'what-the-shit',
   'get-the-fuck-out', 'shut-the-hell-up', 'absolute-shit',
 
   // Additional explicit
