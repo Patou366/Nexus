@@ -9,6 +9,7 @@ import { AiModerationService } from '../services/aiModerationService.js';
 import { getAfk, clearAfk } from '../services/afkService.js';
 import { handleAutomodSwear } from '../services/automodSwearService.js';
 import { handleJuliannaMention } from '../services/juliannaService.js';
+import { handleChaosTriggers } from '../services/chaosTriggerService.js';
 
 const MESSAGE_XP_RATE_LIMIT_ATTEMPTS = 12;
 const MESSAGE_XP_RATE_LIMIT_WINDOW_MS = 10000;
@@ -52,6 +53,9 @@ export default {
         ),
         handleJuliannaMention(message).catch(err =>
           logger.debug('Error in Julianna mention handler:', err)
+        ),
+        handleChaosTriggers(message).catch(err =>
+          logger.debug('Error in chaos trigger handler:', err)
         )
       ]);
     } catch (error) {
