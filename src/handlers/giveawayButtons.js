@@ -41,7 +41,7 @@ export const giveawayJoinHandler = {
                     throw new TitanBotError(
                         'Giveaway not found in database',
                         ErrorTypes.VALIDATION,
-                        'This giveaway is no longer active.',
+                        'This giveaway could not be found. It may have expired or been created before the bot was last restarted. Ask a moderator to run `/gcreate` to start a new one.',
                         { messageId: interaction.message.id, guildId: interaction.guildId }
                     );
                 }
