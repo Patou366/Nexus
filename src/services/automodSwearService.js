@@ -726,13 +726,15 @@ export async function handleAutomodSwear(message) {
   // ── Sentiment detection — exclamatory vs targeted vs neutral ─────────────
   const sentiment = detectSentiment(content);
 
+  // Exclamatory (excited/positive) swearing: silently track heat, never reply.
+  // These are the casual "holy shit that's insane" moments — not worth calling out.
   if (sentiment === 'exclamatory') {
-    const reply = pickRandom(exclamatoryResponses);
-    await message.reply({ content: reply, allowedMentions: { repliedUser: true } }).catch(() => null);
+    await incrementHeatScore(guildId, userId, swearFreq);
     return;
   }
 
   if (sentiment === 'targeted') {
+    // Targeted swearing always gets a reply — it's aimed at a real person.
     const reply = pickRandom(targetedResponses);
     await message.reply({ content: reply, allowedMentions: { repliedUser: true } }).catch(() => null);
     await incrementHeatScore(guildId, userId, swearFreq);
@@ -748,15 +750,6 @@ export async function handleAutomodSwear(message) {
     await message.channel
       .send(gangMsg(`<@${partnerId}>`, `<@${userId}>`))
       .catch(() => null);
-  }
-
-  // ── Word echo — 50% of the time quote the user's own swear words back ─────
-  const extracted = extractSwearWords(content);
-  if (extracted.length > 0 && Math.random() < WORD_ECHO_CHANCE) {
-    const pick  = extracted.slice(0, 2).join('" and "');
-    const tmpl  = pickRandom(wordEchoTemplates);
-    await message.reply({ content: tmpl(pick), allowedMentions: { repliedUser: true } }).catch(() => null);
-    return;
   }
 
   // ── Grudge Memory check ───────────────────────────────────────────────────
@@ -777,6 +770,34 @@ export async function handleAutomodSwear(message) {
   const prevScore    = await getHeatScore(guildId, userId);
   const newScore     = await incrementHeatScore(guildId, userId, swearFreq);
   const tier         = determineTier(sessionCount, swearFreq);
+
+  // ── Reply probability — higher tiers always reply, lower tiers only sometimes
+  // Tier 1 (mild): 30% chance — bot stays quiet most of the time for casual swearing
+  // Tier 2 (medium): 65% chance — getting more consistent
+  // Tier 3+ / unhinged: always reply — they've earned it
+  const replyChance = tier === 1 ? 0.30 : tier === 2 ? 0.65 : 1.0;
+  const shouldReply = Math.random() < replyChance;
+
+  // Always update heat score, but only reply based on probability
+  if (!shouldReply) {
+    // Heat callout can still fire silently even when no direct reply
+    const prevThreshold = Math.floor(prevScore / HEAT_CALLOUT_EVERY);
+    const newThreshold  = Math.floor(newScore  / HEAT_CALLOUT_EVERY);
+    if (newThreshold > prevThreshold) {
+      const callout = pickRandom(calloutMessages);
+      await message.channel.send(callout(`<@${userId}>`, newScore)).catch(() => null);
+    }
+    return;
+  }
+
+  // ── Word echo — 50% of the time quote the user's own swear words back ─────
+  const extracted = extractSwearWords(content);
+  if (extracted.length > 0 && Math.random() < WORD_ECHO_CHANCE) {
+    const pick  = extracted.slice(0, 2).join('" and "');
+    const tmpl  = pickRandom(wordEchoTemplates);
+    await message.reply({ content: tmpl(pick), allowedMentions: { repliedUser: true } }).catch(() => null);
+    return;
+  }
 
   if (tier === 3 || tier === 'unhinged') {
     // Asymmetric DM — tame public, brutal private
