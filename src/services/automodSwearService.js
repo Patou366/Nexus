@@ -487,8 +487,9 @@ function extractSwearWords(content) {
   const lower = content.toLowerCase();
   const found = [];
   for (const word of triggerWords) {
-    const regex = new RegExp(`(?<![a-z0-9])${buildPattern(word)}(?![a-z0-9])`, 'gi');
-    if (regex.test(lower) && !found.includes(word)) found.push(word);
+    const regex = new RegExp(`(?<![a-z0-9])(${buildPattern(word)})(?![a-z0-9])`, 'gi');
+    const match = regex.exec(lower);
+    if (match && !found.includes(match[1])) found.push(match[1]);
   }
   return found;
 }
