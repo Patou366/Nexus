@@ -1,13 +1,8 @@
-import { SlashCommandBuilder } from 'discord.js';
-import { botConfig } from '../../config/bot.js';
+import { SlashCommandBuilder, PermissionFlagsBits } from 'discord.js';
 import { logger } from '../../utils/logger.js';
 
 const PING_COUNT = 100;
 const DELAY_MS   = 300;
-
-function isOwner(userId) {
-  return botConfig.owners?.includes(userId);
-}
 
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -16,7 +11,8 @@ function sleep(ms) {
 export default {
   data: new SlashCommandBuilder()
     .setName('masspinguser')
-    .setDescription('[Owner only] Ping a user 100 times.')
+    .setDescription('[Admin only] Ping a user 100 times.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
     .addUserOption(opt =>
       opt.setName('target')
         .setDescription('The user to mass ping')
@@ -24,9 +20,9 @@ export default {
     ),
 
   async execute(interaction) {
-    if (!isOwner(interaction.user.id)) {
+    if (!interaction.memberPermissions?.has(PermissionFlagsBits.Administrator)) {
       return interaction.reply({
-        content: '❌ This command is restricted to bot owners only.',
+        content: '❌ This command is restricted to server admins only.',
         flags: 64
       });
     }
