@@ -4,12 +4,14 @@ import { logger } from '../utils/logger.js';
 // ── DB keys ───────────────────────────────────────────────────────────────
 const getSwearAutomodKey = (guildId)        => `guild:${guildId}:swear_automod`;
 const getHeatScoreKey    = (guildId, userId) => `guild:${guildId}:heat:${userId}`;
+const getGrudgeKey       = (guildId, userId) => `guild:${guildId}:grudge:${userId}`;
 
 // ── Config ────────────────────────────────────────────────────────────────
 const HEAT_WINDOW_MS     = 10 * 60 * 1000; // session resets after 10 min of inactivity
 const HEAT_CALLOUT_EVERY = 5;              // public callout every N cumulative heat points
 const FREQ_TIER_BUMP     = 3;              // 3+ swears in one message → bump tier +1
 const FREQ_UNHINGED      = 5;              // 5+ swears in one message → unhinged pool
+const GRUDGE_WINDOW_MS   = 30 * 60 * 1000; // 30 min gap triggers grudge callback
 
 // ── In-memory session tracker (resets per user per 10 min window) ─────────
 // key: `${guildId}:${userId}` → { count, windowStart }
@@ -327,6 +329,60 @@ const calloutMessages = [
   (u, s) => `⚠️ ${u} has been called out **${s}** times total. Still here. Still swearing. The sheer fucking audacity of this dumbass is genuinely breathtaking to witness.`,
 ];
 
+
+// ── Grudge Memory — fired when user swears again 30+ min after last time ──
+// callback receives the stored quote snippet
+const grudgeCallbacks = [
+  q => `Oh you're BACK? Last time you opened that mouth you said "${q}" and it didn't go well for you. Clearly you learned absolutely nothing.`,
+  q => `Bold of you to return. I still remember you saying "${q}" like it was a personal attack on my entire existence. Here we go again, apparently.`,
+  q => `Well well well. Look who showed up again. The last thing you typed was "${q}" and you still haven't recovered from the embarrassment, yet here you are.`,
+  q => `I kept the receipts. You came in here with "${q}" last time and got humiliated. Tonight's encore isn't looking any smarter.`,
+  q => `It's been a while. Thought about what you said last time? You typed "${q}" with your whole chest and I haven't forgotten. Apparently neither has your bad judgment.`,
+  q => `Oh this again. Last session you blessed us with "${q}" — a truly legendary display of poor decisions. Ready to add another one to the collection?`,
+  q => `The audacity. You sat with "${q}" since last time and THIS is what you came back with? You didn't grow at all. Not even a little.`,
+  q => `I archived your last visit. You said "${q}" and thought you were winning. Spoiler: you weren't. Let's see if round two goes any differently.`,
+  q => `Back for more? The last words out of your keyboard were "${q}" — already a historic failure — and now you're here adding to your legacy of terrible choices.`,
+  q => `You know I remember everything, right? "${q}" — that's what you left us with. And now you've returned. Whatever this is, it's already worse.`,
+];
+
+// ── Open Questions — appended to nuclear comebacks to bait a reply ─────────
+const openQuestions = [
+  "Prove me wrong. I'll wait.",
+  "Name one time in your life you weren't the dumbest person in the room. Take your time.",
+  "Go ahead and reply. Every message from you just adds more evidence.",
+  "I genuinely want you to explain your thought process. Walk me through it. Slowly.",
+  "What exactly was the plan here? Because I need to understand.",
+  "Come on then — respond. Let's see how deep this rabbit hole goes.",
+  "Tell me: do you think before you type, or is this all just instinct?",
+  "Disagree with me. I'm begging you. Give me something to work with.",
+  "What would winning even look like for you right now? Genuinely curious.",
+  "I'd say sleep on it, but somehow I think tomorrow's version of you is just as bad.",
+];
+
+// ── Brutal DM pool — sent privately while public gets a tame response ──────
+const brutalDmMessages = [
+  "Hey. Just so you know — I went easy on you out there. What you actually deserved was this: you are genuinely one of the most embarrassing people I've encountered in this server, and the fact that you keep coming back proves you haven't figured that out yet.",
+  "This is the version I didn't post publicly: you are not funny, you are not edgy, and nobody in that channel thinks you're cool for swearing. They're cringing. Every. Single. Time.",
+  "Privately? You're doing terribly. The public comeback was me being KIND. The truth is you've been an absolute disaster in that channel and I don't think you're self-aware enough to realize it.",
+  "I spared you the full roast out there. But between us: that was some of the weakest, most embarrassing behavior I've logged in weeks. You should genuinely be ashamed.",
+  "Don't tell anyone I said this, but the public reply was the polite version. The real answer is that whatever you think you're achieving by swearing in chat, it's not working. You look ridiculous.",
+  "Just between you and me — I held back out there. You got a mild slap when you deserved a full demolition. Get it together before I stop being generous.",
+  "Publicly I kept it civil. Privately: you are the chaos gremlin nobody asked for and everyone in that server has noticed. This isn't a good reputation to be building.",
+  "Here's what I couldn't say in the channel: you are not the villain you think you are. You're more like the background NPC who keeps glitching. Fix it.",
+];
+
+// ── Tame public responses — used when the real roast goes in the DM ───────
+const tamePublicMessages = [
+  "Alright, noted. Moving on.",
+  "Sure. That happened.",
+  "Wow. Anyway.",
+  "Bold choice. Carry on.",
+  "Interesting. Very interesting.",
+  "I see. Cool.",
+  "Sure thing, champ.",
+  "Right. Okay then.",
+];
+
 // ── Detection helpers ─────────────────────────────────────────────────────
 function buildPattern(word) {
   const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -371,6 +427,18 @@ function getComeback(tier) {
   return                          pickRandom(nuclearComebacks);
 }
 
+
+// ── Grudge DB helpers ─────────────────────────────────────────────────────
+async function getGrudge(guildId, userId) {
+  try { return await getFromDb(getGrudgeKey(guildId, userId), null); }
+  catch { return null; }
+}
+
+async function setGrudge(guildId, userId, snippet) {
+  try { await setInDb(getGrudgeKey(guildId, userId), { snippet, ts: Date.now() }); }
+  catch { /* non-fatal */ }
+}
+
 // ── Config helpers ────────────────────────────────────────────────────────
 export async function getSwearAutomodConfig(guildId) {
   try {
@@ -413,22 +481,68 @@ export async function handleAutomodSwear(message) {
   const userId  = message.author.id;
   const guildId = message.guild.id;
 
-  // Increment session (in-memory, resets every 10 min)
+  // Snippet of current message for grudge storage (max 80 chars)
+  const snippet = message.content.slice(0, 80).replace(/\n/g, ' ');
+
+  // ── Grudge Memory check ──────────────────────────────────────────────────
+  const grudge = await getGrudge(guildId, userId);
+  const now    = Date.now();
+  let usedGrudge = false;
+
+  if (grudge && grudge.ts && (now - grudge.ts) >= GRUDGE_WINDOW_MS) {
+    const cb = pickRandom(grudgeCallbacks);
+    await message.reply({
+      content: cb(grudge.snippet),
+      allowedMentions: { repliedUser: true },
+    }).catch(() => null);
+    usedGrudge = true;
+  }
+
+  // Always update grudge with current message
+  await setGrudge(guildId, userId, snippet);
+
+  // If grudge fired, skip normal tier logic
+  if (usedGrudge) return;
+
+  // ── Normal tier logic ────────────────────────────────────────────────────
   const sessionCount = incrementSession(guildId, userId);
+  const prevScore    = await getHeatScore(guildId, userId);
+  const newScore     = await incrementHeatScore(guildId, userId, swearFreq);
 
-  // Increment cumulative heat score (DB-persisted)
-  const prevScore = await getHeatScore(guildId, userId);
-  const newScore  = await incrementHeatScore(guildId, userId, swearFreq);
+  const tier = determineTier(sessionCount, swearFreq);
 
-  // Send tier-appropriate comeback
-  const tier     = determineTier(sessionCount, swearFreq);
-  const comeback = getComeback(tier);
-  await message.reply({
-    content: comeback,
-    allowedMentions: { repliedUser: true },
-  }).catch(() => null);
+  // ── Asymmetric DM (nuclear tier) ─────────────────────────────────────────
+  if (tier === 3 || tier === 'unhinged') {
+    // Public gets a tame response
+    const publicMsg = pickRandom(tamePublicMessages);
+    await message.reply({
+      content: publicMsg,
+      allowedMentions: { repliedUser: true },
+    }).catch(() => null);
 
-  // Check if user crossed a heat callout threshold
+    // DM gets the brutal nuclear roast + an open question
+    const dmRoast   = pickRandom(brutalDmMessages);
+    const openQ     = pickRandom(openQuestions);
+    try {
+      await message.author.send(`${dmRoast}\n\n${openQ}`);
+    } catch { /* DMs closed — silently skip */ }
+
+  } else {
+    // ── Mild / Medium tier — normal public comeback ────────────────────────
+    let comeback = getComeback(tier);
+
+    // Append open question to medium tier 50% of the time for extra provocation
+    if (tier === 2 && Math.random() < 0.5) {
+      comeback += ` ${pickRandom(openQuestions)}`;
+    }
+
+    await message.reply({
+      content: comeback,
+      allowedMentions: { repliedUser: true },
+    }).catch(() => null);
+  }
+
+  // ── Heat callout threshold ───────────────────────────────────────────────
   const prevThreshold = Math.floor(prevScore / HEAT_CALLOUT_EVERY);
   const newThreshold  = Math.floor(newScore  / HEAT_CALLOUT_EVERY);
   if (newThreshold > prevThreshold) {
