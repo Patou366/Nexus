@@ -1,6 +1,5 @@
 import { Events } from "discord.js";
 import { logger, startupLog } from "../utils/logger.js";
-import config from "../config/application.js";
 import { reconcileReactionRoleMessages } from "../services/reactionRoleService.js";
 
 const PRESENCE_INTERVAL_MS = 10 * 60 * 1000;
@@ -10,7 +9,10 @@ const presences = [
     status: "online",
     activities: [{ name: "Casseurt is a bastard", type: 2 }],
   },
-  config.bot.presence,
+  {
+    status: "online",
+    activities: [{ name: "My fellow users!", type: 2 }],
+  },
 ];
 
 export default {
