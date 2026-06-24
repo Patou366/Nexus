@@ -34,13 +34,16 @@ function containsInsult(text) {
 }
 
 // ── Replies ───────────────────────────────────────────────────────────────
-const replies = [
-  (user) => `Hey, let's keep it respectful towards ${user} 👀`,
-  (user) => `${user} didn't do anything to deserve that. Chill.`,
-  (user) => `Oi, easy — no need to come at ${user} like that.`,
-  (user) => `Let's keep it friendly towards ${user}, yeah?`,
-  (user) => `That's a bit much towards ${user}. Dial it back.`,
-];
+  (user) => `Whoa, did ${user} steal your lunch money or something? Chill idiot.`,
+  (user) => `Sir, this is a Wendy's... let's leave ${user} out of this shit.`,
+  (user) => `My sensors are detecting dangerously high salt levels bullshit towards ${user}.`,
+  (user) => `Show some mercy, ${user} has a family dumbass!`,
+  (user) => `Keyboard warrior mode: OFF. Let's be nice to ${user} jackass.`,
+  (user) => `Error 404: Chill not found. Give ${user} a break, wanker.`,
+  (user) => `It’s never that serious. Let's keep it friendly for ${user}, asshole.`,
+  (user) => `Don't make me get the ban hammer bastard, out to protect ${user}`,
+  (user) => `Breathe in, breathe out... and leave ${user} alone, dipshit.`,
+  (user) => `Whoa, save some of that aggression for matchday. Leave ${user} chilling in his shit.`
 
 function pickRandom(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
