@@ -21,7 +21,17 @@ export default {
     try {
       if (message.author.bot || !message.guild) return;
 
-      // Run raid detection, scam detection, AI moderation, AFK handling, and leveling concurrently
+      // Ensure only one reply is ever sent per message across all services.
+      // Monkey-patch message.reply so the first call wins and subsequent ones are no-ops.
+      let hasReplied = false;
+      const originalReply = message.reply.bind(message);
+      message.reply = async (...args) => {
+        if (hasReplied) return null;
+        hasReplied = true;
+        return originalReply(...args);
+      };
+
+      // Non-reply services run in parallel (leveling, moderation, slowmode)
       await Promise.all([
         handleLeveling(message, client),
         RaidDetectionService.processMessage(message, client).catch(err =>
@@ -46,22 +56,25 @@ export default {
             userId: message.author.id
           });
         })().catch(err => logger.debug('Error in AI moderation:', err)),
-        handleAfk(message, client).catch(err =>
-          logger.debug('Error in AFK handling:', err)
-        ),
-        handleAutomodSwear(message).catch(err =>
-          logger.debug('Error in automod swear handling:', err)
-        ),
         handleAutoSlowmode(message).catch(err =>
           logger.debug('Error in auto-slowmode handling:', err)
         ),
-        handleJuliannaMention(message).catch(err =>
-          logger.debug('Error in Julianna mention handler:', err)
-        ),
-        handleChaosTriggers(message).catch(err =>
-          logger.debug('Error in chaos trigger handler:', err)
-        )
       ]);
+
+      // Reply services run sequentially — the monkey-patched message.reply
+      // guarantees at most one reply is ever sent regardless of overlap.
+      await handleAfk(message, client).catch(err =>
+        logger.debug('Error in AFK handling:', err)
+      );
+      await handleAutomodSwear(message).catch(err =>
+        logger.debug('Error in automod swear handling:', err)
+      );
+      await handleJuliannaMention(message).catch(err =>
+        logger.debug('Error in Julianna mention handler:', err)
+      );
+      await handleChaosTriggers(message).catch(err =>
+        logger.debug('Error in chaos trigger handler:', err)
+      );
     } catch (error) {
       logger.error('Error in messageCreate event:', error);
     }

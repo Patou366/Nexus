@@ -133,13 +133,13 @@ const singleDotResponses = [
 
 function isKeyboardSmash(content) {
   const clean = content.toLowerCase().trim();
-  if (clean.length < 6) return false;
+  if (clean.length < 8) return false;
 
   const letterRatio = (clean.match(/[a-z]/g) || []).length / clean.length;
   if (letterRatio < 0.85) return false;
 
   const letters = clean.replace(/[^a-z]/g, '');
-  if (letters.length < 5) return false;
+  if (letters.length < 7) return false;
 
   // Vowel ratio — smashes are consonant-heavy
   const vowels = (letters.match(/[aeiou]/g) || []).length;
@@ -153,8 +153,8 @@ function isKeyboardSmash(content) {
   }
   const adjacencyScore = adjacent / (letters.length - 1);
 
-  // It's a smash if: mostly adjacent keys OR extremely consonant-heavy
-  return adjacencyScore > 0.55 || vowelRatio < 0.12;
+  // It's a smash if: mostly adjacent keys (raised threshold) OR extremely consonant-heavy
+  return adjacencyScore > 0.65 || vowelRatio < 0.12;
 }
 
 function detectBrainrot(content) {
