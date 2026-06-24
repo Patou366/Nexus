@@ -116,7 +116,7 @@ function isNoOneAsked(content) {
 }
 
 function isSingleDot(content) {
-  return /^\s*\.+\s*$/.test(content) && content.trim().length <= 3;
+  return content.trim() === '.';
 }
 
 function pickRandom(arr) {
