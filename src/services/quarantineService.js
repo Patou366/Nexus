@@ -174,6 +174,11 @@ export class QuarantineService {
             }
           }
 
+          // Apply maximum timeout (28 days) while staff reviews
+          await suspect.timeout(28 * 24 * 60 * 60 * 1000, 'Raid shield quarantine — pending staff review').catch(err => {
+            logger.warn(`Failed to timeout quarantined member ${suspect.id}:`, err.message);
+          });
+
           processedSuspects.push({
             userId: suspect.id,
             username: suspect.user.tag,
@@ -441,6 +446,11 @@ export class QuarantineService {
           if (verifiedRole && !member.roles.cache.has(verifiedRole.id)) {
             await member.roles.add(verifiedRole, 'False alarm - verified role restored').catch(() => null);
           }
+
+          // Remove timeout applied during quarantine
+          await member.timeout(null, 'False alarm — quarantine timeout lifted').catch(err => {
+            logger.warn(`Failed to remove timeout for restored member ${member.id}:`, err.message);
+          });
 
           restoredUsers.push(suspect);
         } catch (error) {
