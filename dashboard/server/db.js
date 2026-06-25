@@ -34,13 +34,14 @@ function buildConfig() {
   if (internalUrl) {
     try {
       const u = new URL(internalUrl)
+      const useSSL = process.env.POSTGRES_SSL === 'true'
       const config = {
         host: u.hostname,
         port: parseInt(u.port || '5432', 10),
         database: u.pathname.replace(/^\//, ''),
         user: decodeURIComponent(u.username),
         password: decodeURIComponent(u.password),
-        ssl: { rejectUnauthorized: false },
+        ssl: useSSL ? { rejectUnauthorized: false } : false,
       }
       console.log(`🗄️  DB (internal): ${config.host}:${config.port}/${config.database}`)
       return config
@@ -56,13 +57,14 @@ function buildConfig() {
   const pgPort = process.env.PGPORT
 
   if (pgHost && pgUser && pgDatabase) {
+    const useSSL = process.env.POSTGRES_SSL === 'true'
     const config = {
       host: pgHost,
       port: parseInt(pgPort || String(PUBLIC_PORT), 10),
       database: pgDatabase,
       user: pgUser,
       password: pgPassword,
-      ssl: { rejectUnauthorized: false },
+      ssl: useSSL ? { rejectUnauthorized: false } : false,
     }
     console.log(`🗄️  DB (pg env): ${config.host}:${config.port}/${config.database}`)
     return config
