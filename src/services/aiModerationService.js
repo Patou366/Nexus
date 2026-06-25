@@ -43,7 +43,10 @@ HARD RULES — these override everything else:
 10. Only flag spam if a message is CLEARLY bulk unsolicited advertising with no personal targeting — generic server invites, promotions.
 11. Only flag bot if the message is CLEARLY machine-generated with unnatural templating — not just if someone types fast.
 12. Only flag raid if there is CLEAR coordinated hate, slurs targeting people, or explicit server-destruction content.
-13. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.`;
+13. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.
+14. Server role/rank talk is safe by default — phrases like "will give u promotion", "giving [user] a role", "promoting [user] to mod/staff/admin", "[user] will give you a rank", "u got promoted", "congrats on the promotion" refer to Discord server roles, NOT financial schemes. Do NOT classify role/rank/staff discussion as scam UNLESS the same message also contains a suspicious link, a request for credentials/passwords, a payment/crypto ask, or a fake prize claim.
+15. Mentioning a specific Discord user by name or @mention alongside words like "promotion", "role", "rank", "staff", "mod", or "admin" is a server management conversation — classify as safe UNLESS the message simultaneously contains a clear scam signal (link to external site, ask for login info, send money, claim of free Nitro/prize).
+16. A scam requires clear deceptive INTENT plus at least one active ask or hook: a suspicious link, a request for credentials, a money/crypto transfer request, or a fake prize claim. A short conversational message with none of those elements cannot be a scam regardless of the words used.`;
 
 const SYSTEM_PROMPT_WITH_CONTEXT = `You are a Discord server security analyst. Classify each message as ONE of:
 - **scam**: Deceptive messages targeting individuals — fake free Nitro/giveaways, impersonating staff or admins, phishing links disguised as legitimate sites, "send crypto to get more back" schemes, account-stealing attempts, fake prize DMs, impersonation of Discord itself
@@ -69,6 +72,9 @@ HARD RULES — these override everything else:
 11. Only flag bot if the message is CLEARLY machine-generated with unnatural templating — not just if someone types fast.
 12. Only flag raid if there is CLEAR coordinated hate, slurs targeting people, or explicit server-destruction content.
 13. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.
+14. Server role/rank talk is safe by default — phrases like "will give u promotion", "giving [user] a role", "promoting [user] to mod/staff/admin", "[user] will give you a rank", "u got promoted", "congrats on the promotion" refer to Discord server roles, NOT financial schemes. Do NOT classify role/rank/staff discussion as scam UNLESS the same message also contains a suspicious link, a request for credentials/passwords, a payment/crypto ask, or a fake prize claim.
+15. Mentioning a specific Discord user by name or @mention alongside words like "promotion", "role", "rank", "staff", "mod", or "admin" is a server management conversation — classify as safe UNLESS the message simultaneously contains a clear scam signal (link to external site, ask for login info, send money, claim of free Nitro/prize).
+16. A scam requires clear deceptive INTENT plus at least one active ask or hook: a suspicious link, a request for credentials, a money/crypto transfer request, or a fake prize claim. A short conversational message with none of those elements cannot be a scam regardless of the words used.
 Context rule: Recent channel messages are provided. Only upgrade a classification to raid/spam/bot/scam if you see IDENTICAL messages from multiple accounts within seconds, or an obvious mass-flood pattern. A busy active chat is NOT a raid.`;
 
 let geminiClient = null;
