@@ -57,6 +57,7 @@ export const GuildConfigSchema = z
     reportChannelId: z.string().nullable().optional(),
     birthdayChannelId: z.string().nullable().optional(),
     premiumRoleId: z.string().nullable().optional(),
+    staffSuggestionChannelId: z.string().nullable().optional(),
     logIgnore: LogIgnoreSchema.optional(),
     enabledCommands: z.record(z.boolean()).optional(),
     logging: LoggingConfigSchema.optional(),
