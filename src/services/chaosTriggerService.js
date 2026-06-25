@@ -207,7 +207,7 @@ const CHANCE = {
   noOneAsked:   1.00,
   keyboardSmash:1.00,
   brainrot:     1.00,
-  dramaQueen:   1.00,
+  dramaQueen:   0.50,
 };
 
 function roll(chance) { return Math.random() < chance; }
