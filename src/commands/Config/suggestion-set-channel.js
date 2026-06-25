@@ -17,7 +17,7 @@ export default {
         .addChannelOption(option =>
             option
                 .setName('channel')
-                .setDescription('The channel where staff suggestions will be posted / El canal donde se publicaran las sugerencias del staff')
+                .setDescription('Channel for staff suggestions / Canal de sugerencias del staff')
                 .addChannelTypes(ChannelType.GuildText)
                 .setRequired(true)
         ),
