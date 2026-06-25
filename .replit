@@ -28,7 +28,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npm install && (node dashboard/server/index.js & cd dashboard && ../node_modules/.bin/vite)"
+args = "node dashboard/server/index.js & cd dashboard && node_modules/.bin/vite --config vite.config.js"
 waitForPort = 5000
 
 [[ports]]
@@ -43,6 +43,18 @@ externalPort = 3001
 localPort = 5000
 externalPort = 80
 
-[[ports]]
-localPort = 5001
-externalPort = 3003
+[userenv]
+
+[userenv.shared]
+NODE_ENV = "production"
+LOG_LEVEL = "warn"
+LOG_TO_FILE = "false"
+PORT = "3000"
+WEB_HOST = "0.0.0.0"
+PORT_RETRY_ATTEMPTS = "5"
+AUTO_MIGRATE = "true"
+POSTGRES_SSL = "true"
+POSTGRES_SSL_REJECT_UNAUTHORIZED = "false"
+BACKUP_DIR = "./backups"
+BACKUP_RETENTION_DAYS = "14"
+BOT_INTERNAL_URL = "http://localhost:3000"
