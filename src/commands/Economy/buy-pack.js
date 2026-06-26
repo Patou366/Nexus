@@ -70,7 +70,7 @@ export default {
       if (openNow) {
         await addPackToInventory(guildId, userId, packId);
         const reward = await openPack(guildId, userId, packId);
-        const newBalance = await (await import('../../services/economy.js')).getUserBalance(guildId, userId);
+        const newBalance = await getUserBalance(guildId, userId);
 
         const embed = successEmbed(
           `${pack.emoji} Pack Opened!`,
@@ -82,7 +82,7 @@ export default {
         await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       } else {
         await addPackToInventory(guildId, userId, packId);
-        const newBalance = await (await import('../../services/economy.js')).getUserBalance(guildId, userId);
+        const newBalance = await getUserBalance(guildId, userId);
 
         const embed = successEmbed(
           `${pack.emoji} Pack Purchased!`,

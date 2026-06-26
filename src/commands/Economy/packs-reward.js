@@ -10,9 +10,6 @@ export default {
     .setDescription('(Admin) Give coins or packs to a member as a reward')
     .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild)
     .setDMPermission(false)
-    .addUserOption(option =>
-      option.setName('user').setDescription('The member to reward').setRequired(true)
-    )
     .addSubcommand(sub =>
       sub
         .setName('coins')
