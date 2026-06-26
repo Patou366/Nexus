@@ -114,6 +114,15 @@ export default {
             fields.push({ name: 'Category / Categoria', value: categoryLabels[category] || category, inline: true });
         }
 
+        // Vote count display fields
+        fields.push(
+            { name: '👍 Support / Apoyar', value: '**0** votes', inline: true },
+            { name: '👎 Oppose / Oponerse', value: '**0** votes', inline: true },
+            { name: '🤔 Neutral', value: '**0** votes', inline: true },
+            // Hidden voter tracking field — stores "u:id1,id2|d:id3|n:id4" to prevent double votes
+            { name: '\u200b', value: 'u:|d:|n:', inline: false }
+        );
+
         const suggestionEmbed = createEmbed({
             title: '📝 Staff Suggestion / Sugerencia del Staff',
             description: suggestion,
@@ -130,15 +139,15 @@ export default {
         const voteRow = new ActionRowBuilder().addComponents(
             new ButtonBuilder()
                 .setCustomId('staff_suggestion_upvote')
-                .setLabel('👍 Support / Apoyar')
+                .setLabel('👍 Support / Apoyar (0)')
                 .setStyle(ButtonStyle.Success),
             new ButtonBuilder()
                 .setCustomId('staff_suggestion_downvote')
-                .setLabel('👎 Oppose / Oponerse')
+                .setLabel('👎 Oppose / Oponerse (0)')
                 .setStyle(ButtonStyle.Danger),
             new ButtonBuilder()
                 .setCustomId('staff_suggestion_neutral')
-                .setLabel('🤔 Neutral')
+                .setLabel('🤔 Neutral (0)')
                 .setStyle(ButtonStyle.Secondary)
         );
 
