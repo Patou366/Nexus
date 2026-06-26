@@ -11,6 +11,7 @@ import { handleAutomodSwear } from '../services/automodSwearService.js';
 import { handleAutoSlowmode } from '../services/autoSlowmodeService.js';
 import { handleJuliannaMention } from '../services/juliannaService.js';
 import { handleChaosTriggers } from '../services/chaosTriggerService.js';
+import { handleStickyNote } from '../services/stickyNoteService.js';
 
 const MESSAGE_XP_RATE_LIMIT_ATTEMPTS = 12;
 const MESSAGE_XP_RATE_LIMIT_WINDOW_MS = 10000;
@@ -58,6 +59,9 @@ export default {
         })().catch(err => logger.debug('Error in AI moderation:', err)),
         handleAutoSlowmode(message).catch(err =>
           logger.debug('Error in auto-slowmode handling:', err)
+        ),
+        handleStickyNote(message, client).catch(err =>
+          logger.debug('Error in sticky note handling:', err)
         ),
       ]);
 
