@@ -12,6 +12,7 @@ const nav = [
   { to: '/applications',  label: 'Applications',  icon: '📝' },
   { to: '/join-to-create',label: 'Join To Create',icon: '🔊' },
   { to: '/raid-shield',   label: 'Raid Shield',   icon: '🚨' },
+  { to: '/economy',       label: 'Economy',       icon: '🪙' },
 ]
 
 export default function Sidebar() {

@@ -13,6 +13,7 @@ import Commands from './pages/Commands.jsx'
 import Applications from './pages/Applications.jsx'
 import JoinToCreate from './pages/JoinToCreate.jsx'
 import RaidShield from './pages/RaidShield.jsx'
+import Economy from './pages/Economy.jsx'
 
 export default function App() {
   return (
@@ -34,6 +35,7 @@ export default function App() {
               <Route path="/applications"   element={<Applications />} />
               <Route path="/join-to-create" element={<JoinToCreate />} />
               <Route path="/raid-shield"    element={<RaidShield />} />
+              <Route path="/economy"        element={<Economy />} />
             </Routes>
           </main>
         </div>

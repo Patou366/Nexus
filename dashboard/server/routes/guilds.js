@@ -93,7 +93,6 @@ router.put('/:guildId/config', async (req, res, next) => {
     const { guildId } = req.params
     const patch = req.body
 
-    // Strip botStatus from guild config — it's global, handled separately
     const { botStatus, ...guildPatch } = patch
 
     await ensureGuild(guildId)
@@ -239,6 +238,43 @@ router.put('/:guildId/applications', async (req, res, next) => {
        ON CONFLICT (key) DO UPDATE SET value = $2::jsonb, expires_at = NULL`,
       [key, JSON.stringify(merged)]
     )
+    res.json(merged)
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.get('/:guildId/economy', async (req, res, next) => {
+  try {
+    const { guildId } = req.params
+    const key = `economy:${guildId}:config`
+    const result = await pool.query(
+      `SELECT value FROM temp_data WHERE key = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+      [key]
+    )
+    res.json(result.rows.length > 0 ? result.rows[0].value : {})
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.put('/:guildId/economy', async (req, res, next) => {
+  try {
+    const { guildId } = req.params
+    const key = `economy:${guildId}:config`
+    const patch = req.body
+    const existing = await pool.query(
+      `SELECT value FROM temp_data WHERE key = $1 AND (expires_at IS NULL OR expires_at > NOW())`,
+      [key]
+    )
+    const current = existing.rows.length > 0 ? existing.rows[0].value : {}
+    const merged = { ...current, ...patch }
+    await pool.query(
+      `INSERT INTO temp_data (key, value) VALUES ($1, $2::jsonb)
+       ON CONFLICT (key) DO UPDATE SET value = $2::jsonb, expires_at = NULL`,
+      [key, JSON.stringify(merged)]
+    )
+    notifyBot('/api/internal/config-update', { guildId, config: { economy: merged } })
     res.json(merged)
   } catch (err) {
     next(err)
