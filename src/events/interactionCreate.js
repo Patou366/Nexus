@@ -221,6 +221,19 @@ export default {
               });
               await interaction.respond([]);
             }
+          } else {
+            const command = client.commands.get(interaction.commandName);
+            if (command?.autocomplete) {
+              try {
+                await command.autocomplete(interaction);
+              } catch (error) {
+                logger.error('Error handling autocomplete:', {
+                  error: error.message,
+                  commandName: interaction.commandName,
+                });
+                await interaction.respond([]);
+              }
+            }
           }
         } else if (interaction.isButton()) {
           if (interaction.customId.startsWith('shared_todo_')) {
