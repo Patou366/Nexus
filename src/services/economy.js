@@ -54,7 +54,7 @@ export async function getEconomyConfig(guildId) {
     return {
       ...DEFAULT_CONFIG,
       ...stored,
-      packs: stored.packs || DEFAULT_CONFIG.packs,
+      packs: stored.packs?.length ? stored.packs : DEFAULT_CONFIG.packs,
     };
   } catch (err) {
     logger.error(`[Economy] Failed to get config for ${guildId}:`, err);
