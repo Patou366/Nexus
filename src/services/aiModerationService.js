@@ -418,11 +418,12 @@ async function sendAiAlert(message, client, aiResult, action, aiConfig) {
     ]
   });
 
-  const pingContent = config.alertRoleId ? `<@&${config.alertRoleId}>` : null;
+  const isScam = aiResult.classification === 'scam';
+  const pingContent = (isScam && config.alertRoleId) ? `<@&${config.alertRoleId}>` : null;
   await alertChannel.send({
     content: pingContent,
     embeds: [embed],
-    allowedMentions: { roles: config.alertRoleId ? [config.alertRoleId] : [] }
+    allowedMentions: { roles: (isScam && config.alertRoleId) ? [config.alertRoleId] : [] }
   }).catch(err => logger.debug('Failed to send AI alert:', err.message));
 }
 

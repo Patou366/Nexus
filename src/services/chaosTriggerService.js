@@ -244,12 +244,6 @@ export async function handleChaosTriggers(message) {
     return;
   }
 
-  const dramaWord = detectDramaQueen(content);
-  if (dramaWord && roll(CHANCE.dramaQueen)) {
-    await message.reply({ content: pickRandom(dramaQueenResponses)(dramaWord), allowedMentions: { repliedUser: true } }).catch(() => null);
-    return;
-  }
-
   const brainrotWord = detectBrainrot(content);
   if (brainrotWord && roll(CHANCE.brainrot)) {
     await message.reply({ content: pickRandom(brainrotResponses)(brainrotWord), allowedMentions: { repliedUser: true } }).catch(() => null);
