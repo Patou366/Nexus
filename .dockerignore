@@ -1,0 +1,15 @@
+node_modules
+npm-debug.log
+package-lock.json
+.env
+.env.*
+logs
+*.log
+dashboard/node_modules
+dashboard/dist
+.git
+.gitignore
+.agents
+.local
+backups
+tests
