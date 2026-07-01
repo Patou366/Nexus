@@ -60,6 +60,8 @@ export default {
         const { options, guild, client } = interaction;
         const subcommand = options.getSubcommand();
 
+        const MAX_AUTO_ROLES = 5;
+
         if (subcommand === 'add') {
             const role = options.getRole('role');
 
@@ -88,9 +90,8 @@ export default {
             try {
                 const config = await getWelcomeConfig(client, guild.id);
                 const existingRoles = config.roleIds || [];
-                const currentRoleId = existingRoles[0] || null;
-                
-                if (currentRoleId === role.id) {
+
+                if (existingRoles.includes(role.id)) {
                     logger.info(`[Autorole] User ${interaction.user.tag} tried to add duplicate role ${role.name} (${role.id}) in ${guild.name}`);
                     return InteractionHelper.safeEditReply(interaction, {
                         embeds: [errorEmbed('Already Added', `The role ${role} is already set to be auto-assigned.`)],
@@ -98,16 +99,22 @@ export default {
                     });
                 }
 
+                if (existingRoles.length >= MAX_AUTO_ROLES) {
+                    return InteractionHelper.safeEditReply(interaction, {
+                        embeds: [errorEmbed('Limit Reached', `You can only set up to **${MAX_AUTO_ROLES}** auto-assigned roles. Remove one first.`)],
+                        flags: MessageFlags.Ephemeral
+                    });
+                }
+
+                const updatedRoles = [...existingRoles, role.id];
                 await updateWelcomeConfig(client, guild.id, {
-                    roleIds: [role.id]
+                    roleIds: updatedRoles
                 });
 
-                logger.info(`[Autorole] Set single auto-role to ${role.name} (${role.id}) in ${guild.name} by ${interaction.user.tag}`);
+                logger.info(`[Autorole] Added auto-role ${role.name} (${role.id}) in ${guild.name} by ${interaction.user.tag}. Total: ${updatedRoles.length}`);
                 await InteractionHelper.safeEditReply(interaction, {
                     embeds: [createAutoroleInfoEmbed(
-                        currentRoleId
-                            ? `✅ Auto-role updated to ${role}. Only one auto-role is allowed.`
-                            : `✅ Auto-role set to ${role}.`
+                        `✅ Added ${role} to auto-assigned roles. (${updatedRoles.length}/${MAX_AUTO_ROLES})`
                     )],
                     flags: MessageFlags.Ephemeral
                 });
@@ -176,17 +183,9 @@ export default {
                 const config = await getWelcomeConfig(client, guild.id);
                 const autoRoles = Array.isArray(config.roleIds) ? config.roleIds : [];
 
-                const singleRoleIds = autoRoles.length > 1 ? [autoRoles[0]] : autoRoles;
-                if (singleRoleIds.length !== autoRoles.length) {
-                    await updateWelcomeConfig(client, guild.id, {
-                        roleIds: singleRoleIds
-                    });
-                    logger.info(`[Autorole] Trimmed auto-role list to one role in ${interaction.guild.name}`);
-                }
-
-                if (singleRoleIds.length === 0) {
+                if (autoRoles.length === 0) {
                     return InteractionHelper.safeEditReply(interaction, {
-                        embeds: [createAutoroleInfoEmbed(`ℹ️ No role is set to be auto-assigned.${conflictSummary ? `\n\n⚠️ Setup blockers:\n${conflictSummary}` : ''}`)],
+                        embeds: [createAutoroleInfoEmbed(`ℹ️ No roles are set to be auto-assigned.${conflictSummary ? `\n\n⚠️ Setup blockers:\n${conflictSummary}` : ''}`)],
                         flags: MessageFlags.Ephemeral
                     });
                 }
@@ -195,7 +194,7 @@ export default {
                 const validRoles = [];
                 const invalidRoleIds = [];
                 
-                for (const roleId of singleRoleIds) {
+                for (const roleId of autoRoles) {
                     const role = roles.get(roleId);
                     if (role) {
                         validRoles.push(role);
@@ -206,7 +205,7 @@ export default {
 
                 if (invalidRoleIds.length > 0) {
                     logger.info(`[Autorole] Cleaning up ${invalidRoleIds.length} invalid role(s) from guild ${interaction.guild.name}`);
-                    const updatedRoles = singleRoleIds.filter(id => !invalidRoleIds.includes(id));
+                    const updatedRoles = autoRoles.filter(id => !invalidRoleIds.includes(id));
                     await updateWelcomeConfig(client, guild.id, {
                         roleIds: updatedRoles
                     });
@@ -214,16 +213,17 @@ export default {
 
                 if (validRoles.length === 0) {
                     return InteractionHelper.safeEditReply(interaction, {
-                        embeds: [createAutoroleInfoEmbed(`ℹ️ No valid auto-role found. Any invalid role has been removed.${conflictSummary ? `\n\n⚠️ Setup blockers:\n${conflictSummary}` : ''}`)],
+                        embeds: [createAutoroleInfoEmbed(`ℹ️ No valid auto-roles found. Any invalid roles have been removed.${conflictSummary ? `\n\n⚠️ Setup blockers:\n${conflictSummary}` : ''}`)],
                         flags: MessageFlags.Ephemeral
                     });
                 }
 
+                const roleList = validRoles.map((r, i) => `${i + 1}. ${r}`).join('\n');
                 const embed = new EmbedBuilder()
                     .setColor(getColor('info'))
-                    .setTitle('Auto-Assigned Role')
-                    .setDescription(`${validRoles[0]}${conflictSummary ? `\n\n⚠️ Setup blockers:\n${conflictSummary}` : ''}`)
-                    .setFooter({ text: 'Only one auto-role can be configured.' });
+                    .setTitle('Auto-Assigned Roles')
+                    .setDescription(`${roleList}${conflictSummary ? `\n\n⚠️ Setup blockers:\n${conflictSummary}` : ''}`)
+                    .setFooter({ text: `${validRoles.length}/${MAX_AUTO_ROLES} roles configured` });
 
                 await InteractionHelper.safeEditReply(interaction, {
                     embeds: [embed],
