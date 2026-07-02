@@ -1,6 +1,5 @@
 import { SlashCommandBuilder } from 'discord.js';
 import { createEmbed, errorEmbed } from '../../utils/embeds.js';
-import { logger } from '../../utils/logger.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { getUserBalance, getUserInventory, getEconomyConfig } from '../../services/economy.js';
@@ -8,12 +7,12 @@ import { getUserBalance, getUserInventory, getEconomyConfig } from '../../servic
 export default {
   data: new SlashCommandBuilder()
     .setName('coins')
-    .setDescription('Check your coin balance or another member\'s balance')
+    .setDescription("Check your coin balance or another member's balance")
     .setDMPermission(false)
     .addUserOption(option =>
       option
         .setName('user')
-        .setDescription('The member to check (leave empty to check yourself)')
+        .setDescription('The member to check (leave empty for yourself)')
         .setRequired(false)
     ),
 
@@ -31,9 +30,21 @@ export default {
       const isSelf = target.id === interaction.user.id;
       const packCount = (inv.packs || []).length;
 
+      const workCooldown = config.workCooldown || 4 * 60 * 60 * 1000;
+      const workReady = !balance.lastWork || (Date.now() - balance.lastWork) >= workCooldown;
+      const workText = workReady
+        ? '✅ Ready!'
+        : `<t:${Math.floor((balance.lastWork + workCooldown) / 1000)}:R>`;
+
+      const robCooldown = config.robCooldown || 30 * 60 * 1000;
+      const robReady = !balance.lastRob || (Date.now() - balance.lastRob) >= robCooldown;
+      const robText = robReady
+        ? '✅ Ready!'
+        : `<t:${Math.floor((balance.lastRob + robCooldown) / 1000)}:R>`;
+
       const embed = createEmbed({
         title: `${config.currencyEmoji} ${isSelf ? 'Your Wallet' : `${target.displayName}'s Wallet`}`,
-        description: `**${balance.coins.toLocaleString()} ${config.currencyName}**`,
+        description: `**${(balance.coins || 0).toLocaleString()} ${config.currencyName}**`,
         color: 'primary',
         fields: [
           {
@@ -50,9 +61,19 @@ export default {
             name: '⏰ Next Daily',
             value: balance.lastDaily
               ? `<t:${Math.floor((balance.lastDaily + 86400000) / 1000)}:R>`
-              : 'Available now!',
+              : '✅ Ready!',
             inline: true,
           },
+          {
+            name: '💼 Next Work',
+            value: workText,
+            inline: true,
+          },
+          ...(isSelf ? [{
+            name: '🦹 Next Rob',
+            value: robText,
+            inline: true,
+          }] : []),
         ],
         thumbnail: target.displayAvatarURL({ size: 64 }),
       });

@@ -436,16 +436,12 @@ export function validateConfig(config) {
     errors.push("Client ID is required (CLIENT_ID environment variable)");
   }
 
-  
+  // Accept a full connection URL OR individual host/user/password vars
   if (process.env.NODE_ENV === 'production') {
-    if (!process.env.POSTGRES_HOST) {
-      errors.push("PostgreSQL host is required in production (POSTGRES_HOST environment variable)");
-    }
-    if (!process.env.POSTGRES_USER) {
-      errors.push("PostgreSQL user is required in production (POSTGRES_USER environment variable)");
-    }
-    if (!process.env.POSTGRES_PASSWORD) {
-      errors.push("PostgreSQL password is required in production (POSTGRES_PASSWORD environment variable)");
+    const hasUrl = !!(process.env.POSTGRES_URL || process.env.DATABASE_URL || process.env.DATABASE_PUBLIC_URL);
+    const hasIndividual = !!(process.env.POSTGRES_HOST && process.env.POSTGRES_USER && process.env.POSTGRES_PASSWORD);
+    if (!hasUrl && !hasIndividual) {
+      errors.push("PostgreSQL connection required in production: set POSTGRES_URL (or DATABASE_URL) — or POSTGRES_HOST + POSTGRES_USER + POSTGRES_PASSWORD");
     }
   }
 
