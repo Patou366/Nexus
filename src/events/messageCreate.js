@@ -6,6 +6,7 @@ import { checkRateLimit } from '../utils/rateLimiter.js';
 import { awardMessageCoins } from '../services/economy.js';
 import { RaidDetectionService } from '../services/raidDetectionService.js';
 import { handleScamDetection } from '../services/scamDetectionService.js';
+import { getTicketData } from '../utils/database.js';
 import { AiModerationService } from '../services/aiModerationService.js';
 import { getAfk, clearAfk } from '../services/afkService.js';
 import { handleAutomodSwear } from '../services/automodSwearService.js';
@@ -42,9 +43,11 @@ export default {
         RaidDetectionService.processMessage(message, client).catch(err =>
           logger.debug('Error in raid detection message processing:', err)
         ),
-        handleScamDetection(message, client).catch(err =>
-          logger.debug('Error in scam detection:', err)
-        ),
+        (async () => {
+          const ticketData = await getTicketData(message.guild.id, message.channel.id).catch(() => null);
+          if (ticketData) return; // never flag messages inside ticket channels
+          await handleScamDetection(message, client);
+        })().catch(err => logger.debug('Error in scam detection:', err)),
         (async () => {
           logger.debug('AI moderation: processMessage invoked', {
             event: 'ai_moderation.invoked',
