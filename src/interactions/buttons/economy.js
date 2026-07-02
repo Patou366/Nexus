@@ -383,7 +383,7 @@ async function handleDashboard(interaction, action, guildId) {
             new ActionRowBuilder().addComponents(
               new TextInputBuilder()
                 .setCustomId('itemRoleOrNote')
-                .setLabel('Role ID (if role) OR Delivery Note (if custom)')
+                .setLabel('Role ID (role) or Delivery Note (custom)')
                 .setStyle(TextInputStyle.Short)
                 .setMaxLength(200)
                 .setPlaceholder('Paste Role ID, or describe what the admin must do')
