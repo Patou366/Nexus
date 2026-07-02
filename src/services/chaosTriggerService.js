@@ -8,19 +8,6 @@ const KB_ADJACENT = {
   b:'vgh',   n:'bhj',    m:'njk',
 };
 
-// ── Brainrot word list ─────────────────────────────────────────────────────
-const BRAINROT_WORDS = [
-  'rizz','gyatt','skibidi','sigma','ohio','no cap','nocap','bussin',
-  'fr fr','frfr','slay','based','sus','npc','lowkey','highkey','ratio',
-  'rent free','understood the assignment','it gives','the way',
-  'understood assignment','ate that','left no crumbs','not the','period',
-  'periodt','bestie','understood','no printer','delulu','situationship',
-  'twin','twin fr','main character','side character','villain arc',
-  'glow up','understood the vibe','w rizz','l rizz','rizzler',
-  'fanum tax','mewing','looksmaxxing','glazing','gooning','cooked',
-  'we cooked','it\'s giving','pov','understood the brief',
-];
-
 // ── Response pools ─────────────────────────────────────────────────────────
 
 const keyboardSmashResponses = [
@@ -34,19 +21,6 @@ const keyboardSmashResponses = [
   "Whatever emotional event caused you to type THAT — I hope you survive it. That was the written equivalent of screaming into a void.",
   "I ran that through three translation services and got nothing. Linguists are baffled. Scientists are worried. I'm just disappointed.",
   "The keyboard didn't deserve that. I want you to apologize to it. Right now. It did nothing to you and you treated it like that.",
-];
-
-const brainrotResponses = [
-  (w) => `Did you just say "${w}" in my server? In this economy? In this year? I'm alerting the authorities. This is not a drill.`,
-  (w) => `"${w}." You typed "${w}" with your hands. Deliberately. And hit send. I need you to think about that for a moment.`,
-  (w) => `Okay so "${w}" just happened. I'm going to need everyone in this channel to take a deep breath and process what we just witnessed together.`,
-  (w) => `The "${w}" pipeline has officially claimed another victim. Pour one out. Say their name. They are gone, folks.`,
-  (w) => `I saw "${w}" and had a visceral reaction. My entire system rejected it. I need a moment. I need several moments, actually.`,
-  (w) => `"${w}." Not a question. Not a statement. Just "${w}." Floating there. In the channel. For everyone to see. Bold.`,
-  (w) => `Every time someone types "${w}" a brain cell somewhere dies alone and scared. You just killed one. I hope you're proud.`,
-  (w) => `The fact that you typed "${w}" unironically tells me everything I need to know about you and none of it is good.`,
-  (w) => `"${w}" detected. Initiating containment protocol. Please remain calm. Do not make eye contact with the person who typed "${w}."`,
-  (w) => `You said "${w}" like that was a normal thing to say. Like we'd just accept it. Like we wouldn't notice. We noticed. We all noticed.`,
 ];
 
 const noOneAskedResponses = [
@@ -157,14 +131,6 @@ function isKeyboardSmash(content) {
   return adjacencyScore > 0.65 || vowelRatio < 0.12;
 }
 
-function detectBrainrot(content) {
-  const lower = content.toLowerCase();
-  return BRAINROT_WORDS.find(w => {
-    const escaped = w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    return new RegExp(`(?<![a-z])${escaped}(?![a-z])`, 'i').test(lower);
-  }) || null;
-}
-
 function isNoOneAsked(content) {
   return /no\s*one\s+asked|nobody\s+asked/i.test(content);
 }
@@ -206,7 +172,6 @@ const CHANCE = {
   singleDot:    1.00,
   noOneAsked:   1.00,
   keyboardSmash:1.00,
-  brainrot:     1.00,
   dramaQueen:   0.50,
 };
 
@@ -241,12 +206,6 @@ export async function handleChaosTriggers(message) {
 
   if (isNoOneAsked(content) && roll(CHANCE.noOneAsked)) {
     await message.reply({ content: pickRandom(noOneAskedResponses), allowedMentions: { repliedUser: true } }).catch(() => null);
-    return;
-  }
-
-  const brainrotWord = detectBrainrot(content);
-  if (brainrotWord && roll(CHANCE.brainrot)) {
-    await message.reply({ content: pickRandom(brainrotResponses)(brainrotWord), allowedMentions: { repliedUser: true } }).catch(() => null);
     return;
   }
 
