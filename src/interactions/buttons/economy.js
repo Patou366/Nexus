@@ -1,84 +1,10 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilder, TextInputBuilder, TextInputStyle } from 'discord.js';
-import { createEmbed, errorEmbed, successEmbed } from '../../utils/embeds.js';
+import { errorEmbed, successEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
-import { getEconomyConfig, saveEconomyConfig, addPackToInventory, getUserBalance } from '../../services/economy.js';
+import { getEconomyConfig, saveEconomyConfig, addPackToInventory } from '../../services/economy.js';
+import { buildDashboardEmbed, buildDashboardRows } from '../../commands/Economy/economy-dashboard.js';
 
-function buildDashboardEmbed(config) {
-  const packList = (config.packs || [])
-    .map((p, i) =>
-      `**${i + 1}. ${p.emoji} ${p.name}** — ${p.price.toLocaleString()} ${config.currencyEmoji}\n` +
-      `  *${p.description}*\n` +
-      p.rewards.map(r => `  • ${r.label} (${r.chance}% chance)`).join('\n')
-    )
-    .join('\n\n') || '*No packs configured.*';
-
-  return createEmbed({
-    title: '⚙️ Economy Dashboard',
-    description: `Configure the economy system for this server.\n\u200b`,
-    color: 'primary',
-    fields: [
-      {
-        name: '💰 Currency Settings',
-        value:
-          `**Name:** ${config.currencyName}\n` +
-          `**Emoji:** ${config.currencyEmoji}\n` +
-          `**System:** ${config.enabled ? '✅ Enabled' : '❌ Disabled'}`,
-        inline: true,
-      },
-      {
-        name: '📅 Daily Reward',
-        value:
-          `**Base:** ${config.dailyAmount} ${config.currencyEmoji}\n` +
-          `**Streak Bonus:** +${config.dailyStreakBonus}/day`,
-        inline: true,
-      },
-      { name: '\u200b', value: '\u200b', inline: false },
-      {
-        name: `📦 Packs (${(config.packs || []).length})`,
-        value: packList.substring(0, 1000),
-        inline: false,
-      },
-    ],
-    footer: { text: 'Changes save immediately' },
-  });
-}
-
-function buildDashboardRows(config) {
-  const row1 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`econ_dashboard:toggle:${config._guildId || 'guild'}`)
-      .setLabel(config.enabled ? 'Disable Economy' : 'Enable Economy')
-      .setStyle(config.enabled ? ButtonStyle.Danger : ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`econ_dashboard:edit_currency:${config._guildId || 'guild'}`)
-      .setLabel('Edit Currency')
-      .setStyle(ButtonStyle.Primary),
-    new ButtonBuilder()
-      .setCustomId(`econ_dashboard:edit_daily:${config._guildId || 'guild'}`)
-      .setLabel('Edit Daily Reward')
-      .setStyle(ButtonStyle.Primary)
-  );
-
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder()
-      .setCustomId(`econ_dashboard:add_pack:${config._guildId || 'guild'}`)
-      .setLabel('Add Pack')
-      .setStyle(ButtonStyle.Success),
-    new ButtonBuilder()
-      .setCustomId(`econ_dashboard:remove_pack:${config._guildId || 'guild'}`)
-      .setLabel('Remove Pack')
-      .setStyle(ButtonStyle.Danger)
-      .setDisabled((config.packs || []).length === 0),
-    new ButtonBuilder()
-      .setCustomId(`econ_dashboard:refresh:${config._guildId || 'guild'}`)
-      .setLabel('🔄 Refresh')
-      .setStyle(ButtonStyle.Secondary)
-  );
-
-  return [row1, row2];
-}
-
-async function handlePackSpawnClaim(interaction, packId, spawnInteractionId) {
+async function handlePackSpawnClaim(interaction, packId) {
   try {
     const guildId = interaction.guildId;
     const userId = interaction.user.id;
@@ -97,7 +23,6 @@ async function handlePackSpawnClaim(interaction, packId, spawnInteractionId) {
 
     const labelMatch = currentButton.label?.match(/\((\d+) left\)/);
     let remaining = labelMatch ? parseInt(labelMatch[1]) : 1;
-
     if (remaining <= 0) {
       return interaction.reply({ embeds: [errorEmbed('❌ Too Late', 'All packs have been claimed!')], ephemeral: true });
     }
@@ -116,7 +41,7 @@ async function handlePackSpawnClaim(interaction, packId, spawnInteractionId) {
 
     await interaction.update({ components: [newRow] });
     await interaction.followUp({
-      embeds: [successEmbed(`${pack.emoji} Pack Claimed!`, `You got a **${pack.name}**! Check your inventory and use \`/buy-pack\` to open it!`)],
+      embeds: [successEmbed(`${pack.emoji} Pack Claimed!`, `You got a **${pack.name}**! Use \`/open-pack\` to open it.`)],
       ephemeral: true,
     });
   } catch (err) {
@@ -134,146 +59,395 @@ async function handleDashboard(interaction, action, guildId) {
     const config = await getEconomyConfig(guildId);
     config._guildId = guildId;
 
+    // ── Toggle / Refresh ──────────────────────────────────────────────────────
     if (action === 'toggle') {
       const updated = await saveEconomyConfig(guildId, { enabled: !config.enabled });
       updated._guildId = guildId;
-      await interaction.update({
+      return interaction.update({
         embeds: [buildDashboardEmbed(updated)],
-        components: buildDashboardRows(updated),
+        components: buildDashboardRows(updated, guildId),
       });
-      return;
     }
 
     if (action === 'refresh') {
-      await interaction.update({
+      return interaction.update({
         embeds: [buildDashboardEmbed(config)],
-        components: buildDashboardRows(config),
+        components: buildDashboardRows(config, guildId),
       });
-      return;
     }
 
+    // ── Currency ──────────────────────────────────────────────────────────────
     if (action === 'edit_currency') {
-      const modal = new ModalBuilder()
-        .setCustomId(`econ_modal:currency:${guildId}`)
-        .setTitle('Edit Currency Settings')
-        .addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('currencyName')
-              .setLabel('Currency Name')
-              .setStyle(TextInputStyle.Short)
-              .setValue(config.currencyName)
-              .setMaxLength(20)
-              .setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('currencyEmoji')
-              .setLabel('Currency Emoji')
-              .setStyle(TextInputStyle.Short)
-              .setValue(config.currencyEmoji)
-              .setMaxLength(8)
-              .setRequired(true)
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:currency:${guildId}`)
+          .setTitle('Edit Currency Settings')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('currencyName')
+                .setLabel('Currency Name')
+                .setStyle(TextInputStyle.Short)
+                .setValue(config.currencyName)
+                .setMaxLength(20)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('currencyEmoji')
+                .setLabel('Currency Emoji')
+                .setStyle(TextInputStyle.Short)
+                .setValue(config.currencyEmoji)
+                .setMaxLength(8)
+                .setRequired(true)
+            )
           )
-        );
-      return interaction.showModal(modal);
+      );
     }
 
+    // ── Daily ─────────────────────────────────────────────────────────────────
     if (action === 'edit_daily') {
-      const modal = new ModalBuilder()
-        .setCustomId(`econ_modal:daily:${guildId}`)
-        .setTitle('Edit Daily Reward')
-        .addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('dailyAmount')
-              .setLabel('Daily Coins Amount')
-              .setStyle(TextInputStyle.Short)
-              .setValue(String(config.dailyAmount))
-              .setMaxLength(7)
-              .setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('dailyStreakBonus')
-              .setLabel('Streak Bonus Per Day')
-              .setStyle(TextInputStyle.Short)
-              .setValue(String(config.dailyStreakBonus))
-              .setMaxLength(5)
-              .setRequired(true)
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:daily:${guildId}`)
+          .setTitle('Edit Daily Reward')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('dailyAmount')
+                .setLabel('Daily Coins Amount')
+                .setStyle(TextInputStyle.Short)
+                .setValue(String(config.dailyAmount))
+                .setMaxLength(7)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('dailyStreakBonus')
+                .setLabel('Streak Bonus Per Day')
+                .setStyle(TextInputStyle.Short)
+                .setValue(String(config.dailyStreakBonus))
+                .setMaxLength(5)
+                .setRequired(true)
+            )
           )
-        );
-      return interaction.showModal(modal);
+      );
     }
 
+    // ── Work ──────────────────────────────────────────────────────────────────
+    if (action === 'edit_work') {
+      const cooldownHrs = ((config.workCooldown || 14400000) / 3600000).toFixed(1);
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:work:${guildId}`)
+          .setTitle('Edit Work Settings')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('workMin')
+                .setLabel('Minimum Coins per Work')
+                .setStyle(TextInputStyle.Short)
+                .setValue(String(config.workMin || 50))
+                .setMaxLength(7)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('workMax')
+                .setLabel('Maximum Coins per Work')
+                .setStyle(TextInputStyle.Short)
+                .setValue(String(config.workMax || 250))
+                .setMaxLength(7)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('workCooldownHours')
+                .setLabel('Cooldown in Hours (e.g. 4 or 0.5)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(cooldownHrs)
+                .setMaxLength(6)
+                .setRequired(true)
+            )
+          )
+      );
+    }
+
+    // ── Rob ───────────────────────────────────────────────────────────────────
+    if (action === 'edit_rob') {
+      const cooldownMins = Math.round((config.robCooldown || 1800000) / 60000);
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:rob:${guildId}`)
+          .setTitle('Edit Rob Settings')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('robCooldownMins')
+                .setLabel('Cooldown in Minutes (e.g. 30)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(String(cooldownMins))
+                .setMaxLength(4)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('robSuccessRate')
+                .setLabel('Success Rate % (1–99)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(String(config.robSuccessRate ?? 45))
+                .setMaxLength(3)
+                .setRequired(true)
+            )
+          )
+      );
+    }
+
+    // ── Message Coins ─────────────────────────────────────────────────────────
+    if (action === 'edit_msg_coins') {
+      const cooldownSecs = Math.round((config.messageCoinsRateLimit || 60000) / 1000);
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:msg_coins:${guildId}`)
+          .setTitle('Edit Message Coins')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('messageCoinsEnabled')
+                .setLabel('Enabled? (yes / no)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(config.messageCoinsEnabled ? 'yes' : 'no')
+                .setMaxLength(3)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('coinsPerMessage')
+                .setLabel('Coins Per Message')
+                .setStyle(TextInputStyle.Short)
+                .setValue(String(config.coinsPerMessage || 5))
+                .setMaxLength(6)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('messageCoinsRateLimitSecs')
+                .setLabel('Cooldown in Seconds (e.g. 60)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(String(cooldownSecs))
+                .setMaxLength(6)
+                .setRequired(true)
+            )
+          )
+      );
+    }
+
+    // ── Admin Notify Role ─────────────────────────────────────────────────────
+    if (action === 'set_admin_role') {
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:admin_role:${guildId}`)
+          .setTitle('Set Admin Notify Role')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('adminNotifyRoleId')
+                .setLabel('Role ID (paste the Discord role ID)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(config.adminNotifyRoleId || '')
+                .setMaxLength(20)
+                .setPlaceholder('e.g. 1234567890123456789 (leave blank to clear)')
+                .setRequired(false)
+            )
+          )
+      );
+    }
+
+    // ── Add Pack ──────────────────────────────────────────────────────────────
     if (action === 'add_pack') {
-      const modal = new ModalBuilder()
-        .setCustomId(`econ_modal:add_pack:${guildId}`)
-        .setTitle('Add New Pack')
-        .addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('packName')
-              .setLabel('Pack Name')
-              .setStyle(TextInputStyle.Short)
-              .setMaxLength(32)
-              .setPlaceholder('e.g. Legendary Pack')
-              .setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('packEmoji')
-              .setLabel('Pack Emoji')
-              .setStyle(TextInputStyle.Short)
-              .setMaxLength(8)
-              .setPlaceholder('e.g. 🌟')
-              .setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('packPrice')
-              .setLabel('Price (in coins)')
-              .setStyle(TextInputStyle.Short)
-              .setMaxLength(7)
-              .setPlaceholder('e.g. 1000')
-              .setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('packDescription')
-              .setLabel('Description')
-              .setStyle(TextInputStyle.Short)
-              .setMaxLength(100)
-              .setPlaceholder('A short description of the pack')
-              .setRequired(true)
-          ),
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('packRewards')
-              .setLabel('Rewards (one per line: amount,chance)')
-              .setStyle(TextInputStyle.Paragraph)
-              .setPlaceholder('100,50\n300,35\n1000,15\n(amount in coins, chance in % — must total 100)')
-              .setRequired(true)
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:add_pack:${guildId}`)
+          .setTitle('Add New Pack')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('packName')
+                .setLabel('Pack Name')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(32)
+                .setPlaceholder('e.g. Legendary Pack')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('packEmoji')
+                .setLabel('Pack Emoji')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(8)
+                .setPlaceholder('e.g. 🌟')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('packPrice')
+                .setLabel('Price (in coins)')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(7)
+                .setPlaceholder('e.g. 1000')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('packDescription')
+                .setLabel('Description')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(100)
+                .setPlaceholder('A short description of the pack')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('packRewards')
+                .setLabel('Rewards (one per line: amount,chance)')
+                .setStyle(TextInputStyle.Paragraph)
+                .setPlaceholder('100,50\n300,35\n1000,15\n(amount in coins, chance in % — must total 100)')
+                .setRequired(true)
+            )
           )
-        );
-      return interaction.showModal(modal);
+      );
     }
 
+    // ── Remove Pack ───────────────────────────────────────────────────────────
     if (action === 'remove_pack') {
-      const modal = new ModalBuilder()
-        .setCustomId(`econ_modal:remove_pack:${guildId}`)
-        .setTitle('Remove a Pack')
-        .addComponents(
-          new ActionRowBuilder().addComponents(
-            new TextInputBuilder()
-              .setCustomId('packId')
-              .setLabel('Pack ID or Name to Remove')
-              .setStyle(TextInputStyle.Short)
-              .setPlaceholder('Enter the pack ID or name')
-              .setRequired(true)
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:remove_pack:${guildId}`)
+          .setTitle('Remove a Pack')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('packId')
+                .setLabel('Pack ID or Name to Remove')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Enter the pack ID or name')
+                .setRequired(true)
+            )
           )
-        );
-      return interaction.showModal(modal);
+      );
+    }
+
+    // ── Add Shop Item ─────────────────────────────────────────────────────────
+    if (action === 'add_shop_item') {
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:add_shop_item:${guildId}`)
+          .setTitle('Add Shop Item')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('itemName')
+                .setLabel('Item Name')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(32)
+                .setPlaceholder('e.g. VIP Role')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('itemEmoji')
+                .setLabel('Emoji')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(8)
+                .setPlaceholder('e.g. 👑')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('itemPrice')
+                .setLabel('Price (in coins)')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(10)
+                .setPlaceholder('e.g. 5000')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('itemType')
+                .setLabel('Type: "role" (auto-assign) or "custom"')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(6)
+                .setPlaceholder('role  OR  custom')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('itemRoleOrNote')
+                .setLabel('Role ID (if role) OR Delivery Note (if custom)')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(200)
+                .setPlaceholder('Paste Role ID, or describe what the admin must do')
+                .setRequired(false)
+            )
+          )
+      );
+    }
+
+    // ── Remove Shop Item ──────────────────────────────────────────────────────
+    if (action === 'remove_shop_item') {
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:remove_shop_item:${guildId}`)
+          .setTitle('Remove a Shop Item')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('shopItemId')
+                .setLabel('Item ID or Name to Remove')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('Enter the item ID or name')
+                .setRequired(true)
+            )
+          )
+      );
+    }
+
+    // ── Shop Style ────────────────────────────────────────────────────────────
+    if (action === 'edit_shop_style') {
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:shop_style:${guildId}`)
+          .setTitle('Edit Shop Appearance')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('shopTitle')
+                .setLabel('Shop Title')
+                .setStyle(TextInputStyle.Short)
+                .setValue(config.shopTitle || 'Server Shop')
+                .setMaxLength(50)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('shopColor')
+                .setLabel('Embed Color (hex, e.g. #5865F2)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(config.shopColor || '#5865F2')
+                .setMaxLength(7)
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('shopFooter')
+                .setLabel('Footer Text (leave blank for default)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(config.shopFooter || '')
+                .setMaxLength(100)
+                .setRequired(false)
+            )
+          )
+      );
     }
 
     await interaction.reply({ embeds: [errorEmbed('❌ Unknown Action', 'Unknown dashboard action.')], ephemeral: true });
@@ -300,8 +474,7 @@ export default [
     name: 'pack_spawn',
     async execute(interaction, _client, args) {
       const packId = args[0];
-      const spawnId = args[1];
-      await handlePackSpawnClaim(interaction, packId, spawnId);
+      await handlePackSpawnClaim(interaction, packId);
     },
   },
 ];

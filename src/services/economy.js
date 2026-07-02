@@ -1,5 +1,6 @@
 import { db } from '../utils/database.js';
 import { logger } from '../utils/logger.js';
+import { checkRateLimit } from '../utils/rateLimiter.js';
 
 // ─── Per-user async mutex ────────────────────────────────────────────────────
 // Prevents concurrent Discord interactions from causing lost-update / cooldown-
@@ -65,6 +66,18 @@ const DEFAULT_CONFIG = {
   workCooldown: 4 * 60 * 60 * 1000, // 4 hours in ms
   robCooldown: 30 * 60 * 1000,       // 30 minutes in ms
   robSuccessRate: 45,                 // % chance success
+  // Message coins
+  messageCoinsEnabled: true,
+  coinsPerMessage: 5,
+  messageCoinsRateLimit: 60 * 1000,  // 1 minute between awards per user
+  // Admin notification role (pinged when bot can't auto-deliver a shop item)
+  adminNotifyRoleId: null,
+  // Role shop appearance
+  shopTitle: 'Server Shop',
+  shopColor: '#5865F2',
+  shopFooter: '',
+  // Role shop items: { id, name, description, emoji, price, type ('role'|'custom'), roleId, deliveryNote }
+  shopItems: [],
   packs: [
     {
       id: 'starter',
@@ -440,6 +453,46 @@ export async function openPack(guildId, userId, packId) {
     }
 
     return reward;
+  });
+}
+
+// ─── Message coins (rate-limited, in-memory) ─────────────────────────────────
+export async function awardMessageCoins(guildId, userId) {
+  try {
+    const config = await getEconomyConfig(guildId);
+    if (!config.enabled || !config.messageCoinsEnabled) return { awarded: false };
+
+    const windowMs = config.messageCoinsRateLimit || 60 * 1000;
+    const rateLimitKey = `msg-coins:${guildId}:${userId}`;
+    const canAward = await checkRateLimit(rateLimitKey, 1, windowMs);
+    if (!canAward) return { awarded: false };
+
+    const coins = Math.max(1, config.coinsPerMessage || 5);
+    return withLock(lockKey(guildId, userId), async () => {
+      const current = await _readBalance(guildId, userId);
+      await _writeBalance(guildId, userId, { ...current, coins: (current.coins || 0) + coins });
+      return { awarded: true, coins };
+    });
+  } catch (err) {
+    logger.warn(`[Economy] awardMessageCoins failed for ${userId}:`, err);
+    return { awarded: false };
+  }
+}
+
+// ─── Shop item purchase (atomic) ─────────────────────────────────────────────
+export async function purchaseShopItem(guildId, userId, itemId) {
+  return withLock(lockKey(guildId, userId), async () => {
+    const config = await getEconomyConfig(guildId);
+    const item = (config.shopItems || []).find(i => i.id === itemId);
+    if (!item) return { success: false, reason: 'not_found' };
+
+    const balance = await _readBalance(guildId, userId);
+    if ((balance.coins || 0) < item.price) {
+      return { success: false, reason: 'funds', have: balance.coins || 0, need: item.price };
+    }
+
+    await _writeBalance(guildId, userId, { ...balance, coins: balance.coins - item.price });
+    return { success: true, item, remaining: balance.coins - item.price };
   });
 }
 

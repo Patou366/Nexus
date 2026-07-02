@@ -3,6 +3,7 @@ import { logger } from '../utils/logger.js';
 import { getLevelingConfig, getUserLevelData } from '../services/leveling.js';
 import { addXp } from '../services/xpSystem.js';
 import { checkRateLimit } from '../utils/rateLimiter.js';
+import { awardMessageCoins } from '../services/economy.js';
 import { RaidDetectionService } from '../services/raidDetectionService.js';
 import { handleScamDetection } from '../services/scamDetectionService.js';
 import { AiModerationService } from '../services/aiModerationService.js';
@@ -35,6 +36,9 @@ export default {
       // Non-reply services run in parallel (leveling, moderation, slowmode)
       await Promise.all([
         handleLeveling(message, client),
+        handleMessageCoins(message).catch(err =>
+          logger.debug('Error in message coins handler:', err)
+        ),
         RaidDetectionService.processMessage(message, client).catch(err =>
           logger.debug('Error in raid detection message processing:', err)
         ),
@@ -84,6 +88,11 @@ export default {
     }
   }
 };
+
+async function handleMessageCoins(message) {
+  if (!message.content || message.content.trim().length === 0) return;
+  await awardMessageCoins(message.guild.id, message.author.id);
+}
 
 async function handleLeveling(message, client) {
   try {
