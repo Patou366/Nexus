@@ -1,3 +1,36 @@
+import { getFromDb, setInDb } from '../utils/database.js';
+
+// ── DB key ────────────────────────────────────────────────────────────────────
+const DB_KEY = (guildId) => `guild:${guildId}:automod:swear`;
+
+// ── Config helpers ────────────────────────────────────────────────────────────
+export async function getSwearAutomodConfig(guildId) {
+  try {
+    const config = await getFromDb(DB_KEY(guildId), null);
+    return config || { enabled: false };
+  } catch {
+    return { enabled: false };
+  }
+}
+
+export async function enableSwearAutomod(guildId) {
+  try {
+    await setInDb(DB_KEY(guildId), { enabled: true, updatedAt: Date.now() });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function disableSwearAutomod(guildId) {
+  try {
+    await setInDb(DB_KEY(guildId), { enabled: false, updatedAt: Date.now() });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 // ── Insult words ──────────────────────────────────────────────────────────
 // Only words that are unambiguously hostile/targeted when directed at someone.
 // Removed casual slang (deadass, stfu, gtfo) and words so common in normal
