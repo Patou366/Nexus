@@ -2,7 +2,7 @@ import { SlashCommandBuilder } from 'discord.js';
 import { createEmbed, errorEmbed, successEmbed } from '../../utils/embeds.js';
 import { handleInteractionError } from '../../utils/errorHandler.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
-import { getEconomyConfig, getUserBalance, removeCoins, addPackToInventory, openPack } from '../../services/economy.js';
+import { getEconomyConfig, getUserBalance, buyPack, openPack } from '../../services/economy.js';
 
 export default {
   data: new SlashCommandBuilder()
@@ -48,50 +48,64 @@ export default {
       const openNow = interaction.options.getBoolean('open') ?? true;
       const config = await getEconomyConfig(guildId);
 
-      const pack = (config.packs || []).find(p => p.id === packId);
-      if (!pack) {
+      // Atomic purchase: deducts coins + adds to inventory in one lock
+      const purchase = await buyPack(guildId, userId, packId);
+
+      if (!purchase.success) {
+        if (purchase.reason === 'not_found') {
+          return InteractionHelper.safeEditReply(interaction, {
+            embeds: [errorEmbed('❌ Unknown Pack', 'That pack does not exist. Use `/pack-shop` to see available packs.')],
+          });
+        }
+        if (purchase.reason === 'funds') {
+          return InteractionHelper.safeEditReply(interaction, {
+            embeds: [errorEmbed(
+              '💸 Insufficient Funds',
+              `You need **${purchase.need.toLocaleString()} ${config.currencyEmoji}** but only have **${purchase.have.toLocaleString()}**.\n\nUse \`/daily\` or \`/work\` to earn more!`
+            )],
+          });
+        }
         return InteractionHelper.safeEditReply(interaction, {
-          embeds: [errorEmbed('❌ Unknown Pack', 'That pack does not exist. Use `/pack-shop` to see available packs.')],
+          embeds: [errorEmbed('❌ Purchase Failed', 'Could not complete the purchase.')],
         });
       }
 
-      const balance = await getUserBalance(guildId, userId);
-      if (balance.coins < pack.price) {
-        return InteractionHelper.safeEditReply(interaction, {
-          embeds: [errorEmbed(
-            '💸 Insufficient Funds',
-            `You need **${pack.price.toLocaleString()} ${config.currencyEmoji}** but only have **${balance.coins.toLocaleString()}**.\n\nUse \`/daily\` to earn more!`
-          )],
-        });
-      }
-
-      await removeCoins(guildId, userId, pack.price);
+      const { pack } = purchase;
 
       if (openNow) {
-        await addPackToInventory(guildId, userId, packId);
+        // Pack is already in inventory — open it immediately
         const reward = await openPack(guildId, userId, packId);
-        const newBalance = await getUserBalance(guildId, userId);
 
+        if (!reward) {
+          // Rare edge case: pack was consumed by a concurrent open before this call resolved
+          const newBalance = await getUserBalance(guildId, userId);
+          const embed = successEmbed(
+            `${pack.emoji} Pack Purchased!`,
+            `You bought a **${pack.name}** for **${pack.price.toLocaleString()} ${config.currencyEmoji}**!\n\n` +
+            `📦 Your pack is in inventory — use \`/open-pack\` to open it.\n` +
+            `👝 Wallet: **${newBalance.coins.toLocaleString()} ${config.currencyEmoji}**`
+          );
+          return InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+        }
+
+        const newBalance = await getUserBalance(guildId, userId);
         const embed = successEmbed(
           `${pack.emoji} Pack Opened!`,
           `You bought and opened a **${pack.name}** for **${pack.price.toLocaleString()} ${config.currencyEmoji}**!\n\n` +
           `✨ **You got:** ${reward.label}\n\n` +
-          `💰 New balance: **${newBalance.coins.toLocaleString()} ${config.currencyEmoji}**`
+          `👝 Wallet: **${newBalance.coins.toLocaleString()} ${config.currencyEmoji}**`
         );
 
-        await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+        return InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       } else {
-        await addPackToInventory(guildId, userId, packId);
-        const newBalance = await getUserBalance(guildId, userId);
-
         const embed = successEmbed(
           `${pack.emoji} Pack Purchased!`,
           `You bought a **${pack.name}** for **${pack.price.toLocaleString()} ${config.currencyEmoji}**!\n\n` +
-          `📦 The pack has been added to your inventory.\n` +
-          `💰 New balance: **${newBalance.coins.toLocaleString()} ${config.currencyEmoji}**`
+          `📦 The pack has been added to your inventory. Use \`/open-pack\` when ready!\n` +
+          `👝 Wallet: **${purchase.remaining.toLocaleString()} ${config.currencyEmoji}**`
         );
 
-        await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+        return InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       }
     } catch (error) {
       await handleInteractionError(interaction, error, { type: 'command', commandName: 'buy-pack' });

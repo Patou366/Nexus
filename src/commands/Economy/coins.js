@@ -42,9 +42,12 @@ export default {
         ? '✅ Ready!'
         : `<t:${Math.floor((balance.lastRob + robCooldown) / 1000)}:R>`;
 
+      const bankCoins = balance.bankCoins || 0;
       const embed = createEmbed({
         title: `${config.currencyEmoji} ${isSelf ? 'Your Wallet' : `${target.displayName}'s Wallet`}`,
-        description: `**${(balance.coins || 0).toLocaleString()} ${config.currencyName}**`,
+        description:
+          `👝 **Wallet: ${(balance.coins || 0).toLocaleString()} ${config.currencyName}**\n` +
+          `🏦 **Bank: ${bankCoins.toLocaleString()} ${config.currencyName}**`,
         color: 'primary',
         fields: [
           {

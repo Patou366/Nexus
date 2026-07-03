@@ -61,6 +61,30 @@ export default {
       });
 
       await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
+
+      // ── Jackpot server announcement ────────────────────────────────────────
+      if (result.outcome === 'jackpot' && config.jackpotChannelId && bet >= (config.jackpotMinBet ?? 100)) {
+        try {
+          // Fetch from guild channels only — prevents cross-guild message routing
+          const channel = await interaction.guild?.channels.fetch(config.jackpotChannelId).catch(() => null);
+          if (channel?.isTextBased() && channel.guildId === guildId) {
+            await channel.send({
+              embeds: [createEmbed({
+                title: '🎰 JACKPOT! 🎰',
+                description:
+                  `🎊 ${interaction.user} just hit the **7️⃣7️⃣7️⃣ JACKPOT** on the slot machine!\n\n` +
+                  `💰 They won **+${Math.abs(result.netChange).toLocaleString()} ${config.currencyEmoji}** ` +
+                  `from a **${bet.toLocaleString()} ${config.currencyEmoji}** bet!\n\n` +
+                  `✨ **${result.multiplier}x payout!** Think you can do it too? Try \`/slots\`!`,
+                color: 'success',
+                thumbnail: interaction.user.displayAvatarURL({ size: 128 }),
+                footer: { text: '🎰 Jackpot Winner!' },
+              })],
+            });
+          }
+        } catch { /* never fail the command because of an announcement */ }
+      }
+
     } catch (error) {
       await handleInteractionError(interaction, error, { type: 'command', commandName: 'slots' });
     }

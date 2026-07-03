@@ -52,15 +52,19 @@ export default {
         });
       }
 
+      const cooldownMins = Math.round((config.robCooldown || 1800000) / 60000);
+      const nextRobTs = Math.floor((Date.now() + (config.robCooldown || 1800000)) / 1000);
+
       if (result.outcome === 'success') {
         const embed = createEmbed({
           title: '🦹 Successful Heist!',
           description:
             `You sneaked into ${target}'s wallet and stole **${result.stolen.toLocaleString()} ${config.currencyEmoji}**!\n\n` +
-            `💰 Your new balance includes the loot. Don't get caught!`,
+            `💰 Your new balance includes the loot. Don't get caught!\n` +
+            `⚠️ *Tip: Bank your coins with \`/bank deposit\` to keep them safe!*`,
           color: 'success',
           thumbnail: target.displayAvatarURL({ size: 64 }),
-          footer: { text: `Success rate: ${config.robSuccessRate ?? 45}% • Cooldown: 30 minutes` },
+          footer: { text: `Success rate: ${config.robSuccessRate ?? 45}% • Cooldown: ${cooldownMins}m • Next attempt: <t:${nextRobTs}:R>` },
         });
         await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       } else {
@@ -71,7 +75,7 @@ export default {
             `💸 You were fined **${result.fine.toLocaleString()} ${config.currencyEmoji}** as punishment.`,
           color: 'error',
           thumbnail: target.displayAvatarURL({ size: 64 }),
-          footer: { text: 'Next attempt available in 30 minutes.' },
+          footer: { text: `Next attempt: <t:${nextRobTs}:R>` },
         });
         await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       }

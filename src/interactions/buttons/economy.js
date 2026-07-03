@@ -450,6 +450,37 @@ async function handleDashboard(interaction, action, guildId) {
       );
     }
 
+    // ── Jackpot Channel ───────────────────────────────────────────────────────
+    if (action === 'set_jackpot_channel') {
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:jackpot_channel:${guildId}`)
+          .setTitle('Set Jackpot Announcement Channel')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('jackpotChannelId')
+                .setLabel('Channel ID (leave blank to disable)')
+                .setStyle(TextInputStyle.Short)
+                .setValue(config.jackpotChannelId || '')
+                .setMaxLength(20)
+                .setPlaceholder('e.g. 1234567890123456789')
+                .setRequired(false)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('jackpotMinBet')
+                .setLabel('Min bet to trigger announcement')
+                .setStyle(TextInputStyle.Short)
+                .setValue(String(config.jackpotMinBet || 100))
+                .setMaxLength(7)
+                .setPlaceholder('e.g. 100')
+                .setRequired(true)
+            )
+          )
+      );
+    }
+
     await interaction.reply({ embeds: [errorEmbed('❌ Unknown Action', 'Unknown dashboard action.')], ephemeral: true });
   } catch (err) {
     logger.error('[Economy] Dashboard button error:', err);

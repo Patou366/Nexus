@@ -73,6 +73,13 @@ export function buildDashboardEmbed(config) {
         inline: true,
       },
       {
+        name: '🎰 Jackpot Channel',
+        value: config.jackpotChannelId
+          ? `<#${config.jackpotChannelId}> (min bet: ${(config.jackpotMinBet || 100).toLocaleString()})`
+          : '*Not set — jackpots are silent*',
+        inline: true,
+      },
+      {
         name: '\u200b',
         value: '\u200b',
         inline: false,
@@ -148,6 +155,10 @@ export function buildDashboardRows(config, guildId) {
     new ButtonBuilder()
       .setCustomId(`econ_dashboard:set_admin_role:${gid}`)
       .setLabel('Set Admin Role')
+      .setStyle(ButtonStyle.Secondary),
+    new ButtonBuilder()
+      .setCustomId(`econ_dashboard:set_jackpot_channel:${gid}`)
+      .setLabel('🎰 Jackpot Channel')
       .setStyle(ButtonStyle.Secondary)
   );
 

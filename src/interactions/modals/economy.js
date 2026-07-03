@@ -271,6 +271,31 @@ async function handleShopStyleModal(interaction, guildId) {
   await refreshDashboard(interaction, guildId);
 }
 
+// ─── Jackpot Channel ──────────────────────────────────────────────────────────
+async function handleJackpotChannelModal(interaction, guildId) {
+  const raw = interaction.fields.getTextInputValue('jackpotChannelId').trim();
+  const minBetRaw = parseInt(interaction.fields.getTextInputValue('jackpotMinBet'));
+
+  if (isNaN(minBetRaw) || minBetRaw < 1) {
+    return interaction.reply({ embeds: [errorEmbed('❌ Invalid Min Bet', 'Min bet must be at least 1.')], ephemeral: true });
+  }
+
+  if (raw && !/^\d{17,20}$/.test(raw)) {
+    return interaction.reply({ embeds: [errorEmbed('❌ Invalid Channel ID', 'Please enter a valid Discord channel ID (17–20 digits), or leave blank to disable.')], ephemeral: true });
+  }
+
+  if (raw) {
+    // Fetch from this guild's channels only — prevents cross-guild config injection
+    const channel = await interaction.guild?.channels.fetch(raw).catch(() => null);
+    if (!channel?.isTextBased()) {
+      return interaction.reply({ embeds: [errorEmbed('❌ Channel Not Found', `Could not find a text channel with ID \`${raw}\` in this server. Make sure you paste a channel ID from **this server**.`)], ephemeral: true });
+    }
+  }
+
+  await saveEconomyConfig(guildId, { jackpotChannelId: raw || null, jackpotMinBet: minBetRaw });
+  await refreshDashboard(interaction, guildId);
+}
+
 // ─── Router ───────────────────────────────────────────────────────────────────
 export default [
   {
@@ -291,6 +316,7 @@ export default [
         if (action === 'add_shop_item')    return handleAddShopItemModal(interaction, guildId);
         if (action === 'remove_shop_item') return handleRemoveShopItemModal(interaction, guildId);
         if (action === 'shop_style')       return handleShopStyleModal(interaction, guildId);
+        if (action === 'jackpot_channel')  return handleJackpotChannelModal(interaction, guildId);
 
         await interaction.reply({ embeds: [errorEmbed('❌ Unknown Action', 'Unknown modal action.')], ephemeral: true });
       } catch (err) {

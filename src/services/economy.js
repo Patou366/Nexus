@@ -72,6 +72,9 @@ const DEFAULT_CONFIG = {
   messageCoinsRateLimit: 60 * 1000,  // 1 minute between awards per user
   // Admin notification role (pinged when bot can't auto-deliver a shop item)
   adminNotifyRoleId: null,
+  // Jackpot / big-win announcements
+  jackpotChannelId: null,
+  jackpotMinBet: 100,                // Only announce jackpots if bet >= this amount
   // Role shop appearance
   shopTitle: 'Server Shop',
   shopColor: '#5865F2',
@@ -136,7 +139,7 @@ export async function saveEconomyConfig(guildId, patch) {
 // ─── Raw balance (no lock — callers must hold lock) ───────────────────────────
 async function _readBalance(guildId, userId) {
   const data = await db.get(userBalanceKey(guildId, userId));
-  return data || { coins: 0, lastDaily: null, dailyStreak: 0, lastWork: null, lastRob: null };
+  return data || { coins: 0, bankCoins: 0, lastDaily: null, dailyStreak: 0, lastWork: null, lastRob: null };
 }
 
 async function _writeBalance(guildId, userId, data) {
@@ -148,10 +151,11 @@ async function _writeBalance(guildId, userId, data) {
 // ─── Public read (safe without lock for display only) ────────────────────────
 export async function getUserBalance(guildId, userId) {
   try {
-    return await _readBalance(guildId, userId);
+    const data = await _readBalance(guildId, userId);
+    return { bankCoins: 0, ...data }; // ensure bankCoins always present
   } catch (err) {
     logger.error(`[Economy] Failed to get balance for ${userId}:`, err);
-    return { coins: 0, lastDaily: null, dailyStreak: 0, lastWork: null, lastRob: null };
+    return { coins: 0, bankCoins: 0, lastDaily: null, dailyStreak: 0, lastWork: null, lastRob: null };
   }
 }
 
@@ -516,5 +520,66 @@ export async function setUserBalance(guildId, userId, data) {
   return withLock(lockKey(guildId, userId), async () => {
     const current = await _readBalance(guildId, userId);
     return _writeBalance(guildId, userId, { ...current, ...data });
+  });
+}
+
+// ─── Atomic pack purchase (coins deducted + inventory updated in one lock) ────
+export async function buyPack(guildId, userId, packId) {
+  return withLock(lockKey(guildId, userId), async () => {
+    const config = await getEconomyConfig(guildId);
+    const pack = (config.packs || []).find(p => p.id === packId);
+    if (!pack) return { success: false, reason: 'not_found' };
+
+    const balance = await _readBalance(guildId, userId);
+    if ((balance.coins || 0) < pack.price) {
+      return { success: false, reason: 'funds', have: balance.coins || 0, need: pack.price };
+    }
+
+    // Deduct coins
+    const newBalance = { ...balance, coins: balance.coins - pack.price };
+    await _writeBalance(guildId, userId, newBalance);
+
+    // Add pack to inventory (inside same lock — no race window)
+    const inv = await getUserInventory(guildId, userId);
+    const packs = [...(inv.packs || []), { packId, obtainedAt: Date.now() }];
+    await db.set(userInventoryKey(guildId, userId), { ...inv, packs });
+
+    return { success: true, pack, remaining: newBalance.coins };
+  });
+}
+
+// ─── Bank (deposit / withdraw) ────────────────────────────────────────────────
+// Bank coins cannot be stolen by /rob — only wallet coins (coins) are at risk.
+export async function depositCoins(guildId, userId, amount) {
+  if (amount < 1) return { success: false, reason: 'amount' };
+  return withLock(lockKey(guildId, userId), async () => {
+    const current = await _readBalance(guildId, userId);
+    if ((current.coins || 0) < amount) {
+      return { success: false, reason: 'funds', have: current.coins || 0 };
+    }
+    const updated = {
+      ...current,
+      coins: current.coins - amount,
+      bankCoins: (current.bankCoins || 0) + amount,
+    };
+    await _writeBalance(guildId, userId, updated);
+    return { success: true, deposited: amount, wallet: updated.coins, bank: updated.bankCoins };
+  });
+}
+
+export async function withdrawCoins(guildId, userId, amount) {
+  if (amount < 1) return { success: false, reason: 'amount' };
+  return withLock(lockKey(guildId, userId), async () => {
+    const current = await _readBalance(guildId, userId);
+    if ((current.bankCoins || 0) < amount) {
+      return { success: false, reason: 'funds', have: current.bankCoins || 0 };
+    }
+    const updated = {
+      ...current,
+      coins: (current.coins || 0) + amount,
+      bankCoins: current.bankCoins - amount,
+    };
+    await _writeBalance(guildId, userId, updated);
+    return { success: true, withdrawn: amount, wallet: updated.coins, bank: updated.bankCoins };
   });
 }
