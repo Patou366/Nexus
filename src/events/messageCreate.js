@@ -26,11 +26,14 @@ export default {
 
       // Ensure only one reply is ever sent per message across all services.
       // Monkey-patch message.reply so the first call wins and subsequent ones are no-ops.
-      let hasReplied = false;
+      // The flag is set synchronously before the async Discord API call so that any
+      // concurrent callers (e.g. via Promise.all) see hasReplied = true immediately
+      // and bail out, eliminating the race condition.
+      const repliedMessages = new WeakMap();
       const originalReply = message.reply.bind(message);
-      message.reply = async (...args) => {
-        if (hasReplied) return null;
-        hasReplied = true;
+      message.reply = (...args) => {
+        if (repliedMessages.has(message)) return Promise.resolve(null);
+        repliedMessages.set(message, true);
         return originalReply(...args);
       };
 
