@@ -2,15 +2,22 @@ import { Events } from 'discord.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { logger } from '../utils/logger.js';
 import { buildRoleAuditFields } from '../utils/roleLogFields.js';
+import { RaidDetectionService } from '../services/raidDetectionService.js';
 
 export default {
   name: Events.GuildRoleDelete,
   once: false,
 
-  async execute(role) {
+  async execute(role, client) {
     try {
       if (!role.guild) return;
 
+      // Anti-nuke: detect mass role deletions
+      await RaidDetectionService.processRoleDelete(role, client).catch(err =>
+        logger.debug('Error in anti-nuke role delete processing:', err)
+      );
+
+      // Audit log
       const fields = buildRoleAuditFields(role, { includeMemberCount: true });
 
       await logEvent({

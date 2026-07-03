@@ -24,6 +24,10 @@ const CHANNEL_DELETE_WINDOW_MS = 5000;    // 5 seconds
 const CHANNEL_DELETE_THRESHOLD = 4;       // 4 channels deleted -> kick
 const CHANNEL_DELETE_PRUNE_INTERVAL_MS = 60000; // prune stale entries every 60s
 
+const ROLE_DELETE_WINDOW_MS = 5000;       // 5 seconds
+const ROLE_DELETE_THRESHOLD = 3;          // 3 roles deleted -> kick
+const ROLE_DELETE_PRUNE_INTERVAL_MS = 60000;
+
 const DEFAULT_AVATAR_URL = 'https://cdn.discordapp.com/embed/avatars/';
 
 const guildJoinWindows = new Map();
@@ -32,14 +36,23 @@ const guildQuarantineLock = new Map();
 const guildInviteCache = new Map();
 const guildNamePatternLock = new Map();
 const guildChannelDeleteWindows = new Map();
+const guildRoleDeleteWindows = new Map();
 
 let lastChannelDeletePrune = Date.now();
+let lastRoleDeletePrune = Date.now();
 
 function getChannelDeleteWindow(guildId) {
   if (!guildChannelDeleteWindows.has(guildId)) {
     guildChannelDeleteWindows.set(guildId, new Map());
   }
   return guildChannelDeleteWindows.get(guildId);
+}
+
+function getRoleDeleteWindow(guildId) {
+  if (!guildRoleDeleteWindows.has(guildId)) {
+    guildRoleDeleteWindows.set(guildId, new Map());
+  }
+  return guildRoleDeleteWindows.get(guildId);
 }
 
 function pruneChannelDeleteWindows() {
@@ -58,6 +71,26 @@ function pruneChannelDeleteWindows() {
     }
     if (userMap.size === 0) {
       guildChannelDeleteWindows.delete(guildId);
+    }
+  }
+}
+
+function pruneRoleDeleteWindows() {
+  const now = Date.now();
+  if (now - lastRoleDeletePrune < ROLE_DELETE_PRUNE_INTERVAL_MS) return;
+  lastRoleDeletePrune = now;
+
+  for (const [guildId, userMap] of guildRoleDeleteWindows.entries()) {
+    for (const [userId, timestamps] of userMap.entries()) {
+      const active = timestamps.filter(ts => now - ts < ROLE_DELETE_WINDOW_MS);
+      if (active.length === 0) {
+        userMap.delete(userId);
+      } else {
+        userMap.set(userId, active);
+      }
+    }
+    if (userMap.size === 0) {
+      guildRoleDeleteWindows.delete(guildId);
     }
   }
 }
@@ -676,6 +709,125 @@ export class RaidDetectionService {
   }
 
   /**
+   * Process a role deletion for anti-nuke protection.
+   * If a single user deletes ROLE_DELETE_THRESHOLD roles within
+   * ROLE_DELETE_WINDOW_MS, they are automatically kicked.
+   * @param {Role} role
+   * @param {Client} client
+   */
+  static async processRoleDelete(role, client) {
+    try {
+      pruneRoleDeleteWindows();
+
+      const guild = role.guild;
+      if (!guild) return;
+
+      const guildId = guild.id;
+      const config = await this.getRaidConfig(client, guildId);
+      if (!config.enabled) return;
+
+      const me = guild.members.me;
+      if (!me || !me.permissions.has(PermissionsBitField.Flags.ViewAuditLog)) {
+        logger.debug(`Anti-nuke (role): missing ViewAuditLog permission in guild ${guildId}`);
+        return;
+      }
+
+      let executorId = null;
+      try {
+        const logs = await guild.fetchAuditLogs({
+          type: AuditLogEvent.RoleDelete,
+          limit: 5
+        });
+        const entry = logs.entries.find(e => e.target?.id === role.id);
+        if (entry && Date.now() - entry.createdTimestamp < ROLE_DELETE_WINDOW_MS + 2000) {
+          executorId = entry.executor?.id || null;
+        }
+      } catch (err) {
+        logger.debug('Anti-nuke (role): could not fetch audit logs:', err.message);
+        return;
+      }
+
+      if (!executorId) return;
+      if (executorId === client.user.id) return;
+      if (executorId === guild.ownerId) return;
+
+      const now = Date.now();
+      const guildWindow = getRoleDeleteWindow(guildId);
+      const timestamps = (guildWindow.get(executorId) || []).filter(
+        ts => now - ts < ROLE_DELETE_WINDOW_MS
+      );
+      timestamps.push(now);
+      guildWindow.set(executorId, timestamps);
+
+      if (timestamps.length < ROLE_DELETE_THRESHOLD) return;
+
+      // Threshold reached — reset window then act
+      guildWindow.set(executorId, []);
+
+      const member = await guild.members.fetch(executorId).catch(() => null);
+      const kickReason = `Anti-nuke: deleted ${timestamps.length} roles in under ${ROLE_DELETE_WINDOW_MS / 1000}s`;
+
+      let kicked = false;
+      if (member && member.kickable) {
+        try {
+          await member.kick(kickReason);
+          kicked = true;
+        } catch (err) {
+          logger.warn(`Anti-nuke (role): failed to kick ${executorId}:`, err.message);
+        }
+      } else {
+        logger.warn(`Anti-nuke (role): member ${executorId} is not kickable in guild ${guildId}`);
+      }
+
+      logger.warn(`Anti-nuke: mass role deletion in ${guild.name}`, {
+        event: 'raid.role_nuke',
+        guildId,
+        executorId,
+        count: timestamps.length,
+        kicked
+      });
+
+      await this.sendRoleNukeAlert({ guild, config, executorId, count: timestamps.length, kicked });
+    } catch (error) {
+      logger.error('Error in raid detection role delete:', error);
+    }
+  }
+
+  /**
+   * Send a staff alert when a role-nuke is detected.
+   */
+  static async sendRoleNukeAlert({ guild, config, executorId, count, kicked }) {
+    try {
+      if (!config.notificationChannelId) return;
+      const channel = guild.channels.cache.get(config.notificationChannelId);
+      if (!channel?.isTextBased()) return;
+
+      const { createEmbed } = await import('../utils/embeds.js');
+      const embed = createEmbed({
+        title: '🛡️ Anti-Nuke Triggered (Role Deletion)',
+        description: kicked
+          ? `<@${executorId}> deleted **${count} roles** in under ${ROLE_DELETE_WINDOW_MS / 1000} seconds and was automatically **kicked**.`
+          : `<@${executorId}> deleted **${count} roles** in under ${ROLE_DELETE_WINDOW_MS / 1000} seconds. I could **not** kick them — please check my role position and permissions.`,
+        color: 'warning',
+        fields: [
+          { name: 'User', value: `<@${executorId}> (${executorId})`, inline: true },
+          { name: 'Roles deleted', value: `${count}`, inline: true },
+          { name: 'Action', value: kicked ? 'Kicked' : 'Kick failed', inline: true }
+        ]
+      });
+
+      const pingContent = config.alertRoleId ? `<@&${config.alertRoleId}>` : null;
+      await channel.send({
+        content: pingContent,
+        embeds: [embed],
+        allowedMentions: { roles: config.alertRoleId ? [config.alertRoleId] : [] }
+      });
+    } catch (error) {
+      logger.error('Error sending role-nuke alert:', error);
+    }
+  }
+
+  /**
    * Send a staff alert when a channel-nuke is detected.
    */
   static async sendChannelNukeAlert({ guild, config, executorId, count, kicked }) {
@@ -778,5 +930,6 @@ export class RaidDetectionService {
     guildQuarantineLock.delete(guildId);
     guildNamePatternLock.delete(guildId);
     guildChannelDeleteWindows.delete(guildId);
+    guildRoleDeleteWindows.delete(guildId);
   }
 }

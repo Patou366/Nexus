@@ -1,7 +1,6 @@
 import { Events } from "discord.js";
 import { logger, startupLog } from "../utils/logger.js";
 import { reconcileReactionRoleMessages } from "../services/reactionRoleService.js";
-import { startReminderScheduler } from "../services/reminderService.js";
 
 const PRESENCE_INTERVAL_MS = 10 * 60 * 1000;
 
@@ -30,7 +29,6 @@ export default {
         client.user.setPresence(presences[presenceIndex]);
       }, PRESENCE_INTERVAL_MS);
 
-      startReminderScheduler(client);
       startupLog(`Ready! Logged in as ${client.user.tag}`);
       startupLog(`Serving ${client.guilds.cache.size} guild(s)`);
       startupLog(`Loaded ${client.commands.size} commands`);
