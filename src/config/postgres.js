@@ -1,6 +1,40 @@
 import { assertAllowlistedIdentifier } from '../utils/sqlIdentifiers.js';
 import { EXPECTED_SCHEMA_LABEL, EXPECTED_SCHEMA_VERSION } from './schemaVersion.js';
 
+// ── Connection URL resolution ────────────────────────────────────────────────
+// DATABASE_PUBLIC_URL  — Railway public proxy, reachable from anywhere (Replit, local dev, etc.)
+// DATABASE_URL         — may be internal or public depending on Railway project settings
+// POSTGRES_URL         — Railway internal private network URL (only reachable inside Railway)
+//
+// Prefer the public URL so the bot works from Replit and Railway alike.
+// On Railway in production, all three will be set; the public URL still works fine there.
+const CONNECTION_URL =
+    process.env.DATABASE_PUBLIC_URL ||
+    process.env.DATABASE_URL ||
+    process.env.POSTGRES_URL ||
+    null;
+
+// Parse the URL into individual options so the rest of the codebase can use
+// either approach.  Falls back gracefully if no URL is provided.
+let _parsedUrl = {};
+if (CONNECTION_URL) {
+    try {
+        const u = new URL(CONNECTION_URL);
+        _parsedUrl = {
+            host:     u.hostname,
+            port:     parseInt(u.port, 10) || 5432,
+            database: u.pathname.replace(/^\//, ''),
+            user:     u.username,
+            password: decodeURIComponent(u.password),
+            // Railway (and most hosted Postgres) require SSL; disable cert
+            // verification because Railway uses self-signed certs.
+            ssl: { rejectUnauthorized: false },
+        };
+    } catch (_) {
+        // malformed URL — will fall through to individual env-var defaults
+    }
+}
+
 const configuredTables = {
     guilds: 'guilds',
     users: 'users',
@@ -47,16 +81,19 @@ const validatedTables = Object.fromEntries(
 
 
 export const pgConfig = {
-    url: process.env.POSTGRES_URL || 'postgresql://localhost:5432/titanbot',
+    url: CONNECTION_URL || 'postgresql://localhost:5432/titanbot',
+    // When set, postgresDatabase.js will pass this directly to pg.Pool
+    // instead of individual host/port/... options.
+    connectionString: CONNECTION_URL || null,
     
     options: {
         
-        host: process.env.POSTGRES_HOST || 'localhost',
-        port: parseInt(process.env.POSTGRES_PORT) || 5432,
-        database: process.env.POSTGRES_DB || 'titanbot',
-        user: process.env.POSTGRES_USER || 'postgres',
-        password: (process.env.POSTGRES_PASSWORD || '').toString(),
-        ssl: process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED !== 'false' } : false,
+        host:     _parsedUrl.host     || process.env.POSTGRES_HOST || 'localhost',
+        port:     _parsedUrl.port     || parseInt(process.env.POSTGRES_PORT) || 5432,
+        database: _parsedUrl.database || process.env.POSTGRES_DB   || 'titanbot',
+        user:     _parsedUrl.user     || process.env.POSTGRES_USER  || 'postgres',
+        password: _parsedUrl.password || (process.env.POSTGRES_PASSWORD || '').toString(),
+        ssl: _parsedUrl.ssl || (process.env.POSTGRES_SSL === 'true' ? { rejectUnauthorized: process.env.POSTGRES_SSL_REJECT_UNAUTHORIZED !== 'false' } : false),
         
         
         max: parseInt(process.env.POSTGRES_MAX_CONNECTIONS) || 20,

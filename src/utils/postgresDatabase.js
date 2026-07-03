@@ -37,22 +37,28 @@ class PostgreSQLDatabase {
             try {
                 await new Promise(resolve => setTimeout(resolve, 100));
 
+                // Build pool config — prefer connectionString (Railway / hosted
+                // Postgres) so we don't need individual host/port/user/pass vars.
+                const poolBase = pgConfig.connectionString
+                    ? {
+                        connectionString: pgConfig.connectionString,
+                        ssl: pgConfig.options.ssl,
+                    }
+                    : {
+                        host:     pgConfig.options.host,
+                        port:     pgConfig.options.port,
+                        database: pgConfig.options.database,
+                        user:     pgConfig.options.user,
+                        password: pgConfig.options.password,
+                        ssl:      pgConfig.options.ssl,
+                    };
+
                 this.pool = new pg.Pool({
-                    
-                    host: pgConfig.options.host,
-                    port: pgConfig.options.port,
-                    database: pgConfig.options.database,
-                    user: pgConfig.options.user,
-                    password: pgConfig.options.password,
-                    ssl: pgConfig.options.ssl,
-                    
-                    
+                    ...poolBase,
                     max: pgConfig.options.max,
                     min: pgConfig.options.min,
                     idleTimeoutMillis: pgConfig.options.idleTimeoutMillis,
                     connectionTimeoutMillis: pgConfig.options.connectionTimeoutMillis,
-                    
-                    
                     application_name: pgConfig.options.application_name,
                     statement_timeout: pgConfig.options.statement_timeout,
                     keepalives: pgConfig.options.keepalives,
