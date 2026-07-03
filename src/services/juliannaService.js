@@ -26,12 +26,14 @@ const defenseReplies = [
   "Wrong server, wrong woman, wrong day. Nobody comes in here and talks sideways about Julianna. Casseurt's queen is off limits. Full stop. 🛑🤖",
 ];
 
-// Plain insult words — matched anywhere in the message
+// Plain insult words — only words that are clearly derogatory when directed
+// at a person. Removed generic opinion words (worst, hate, terrible, annoying,
+// trash, fat, irrelevant) that appear constantly in normal conversation and
+// cause false positives like "Julianna's worst subject" or "I hate that song".
 const INSULT_WORDS = [
-  'ugly', 'stupid', 'dumb', 'idiot', 'hate', 'trash', 'garbage', 'pathetic',
-  'disgusting', 'annoying', 'useless', 'horrible', 'terrible', 'worst',
-  'fat', 'irrelevant', 'clown', 'embarrassing', 'nasty', 'gross', 'loser',
-  'i hate', 'we hate',
+  'ugly', 'stupid', 'dumb', 'idiot', 'pathetic',
+  'disgusting', 'useless', 'nasty', 'gross', 'loser',
+  'clown', 'embarrassing', 'garbage', 'whore', 'slut', 'bitch',
 ];
 
 const CASSEURT_FAVORITE_REPLY = "Oh that's an easy one — Casseurt's favorite part of Julianna is definitely her ass. And honestly? The man has taste. It's perfectly round, big, and somehow both soft and firm at the same time. He literally cannot stop staring at it or grabbing it every chance he gets. Whether she's in tight jeans or just walking around the house, it moves in a way that has him absolutely locked in. The man is down bad and I fully support it. 😤";
@@ -39,9 +41,11 @@ const CASSEURT_FAVORITE_REPLY = "Oh that's an easy one — Casseurt's favorite p
 function isCasseurtFavoriteBodyPart(content) {
   if (!content) return false;
   const lower = content.toLowerCase();
+  // Require "casseurt" + a clear "favorite/favourite/fav" word-boundary match
+  // (not "fav" inside "favor", "favorable", "favor", etc.) + a body-related word.
   const mentionsCasseurt = lower.includes('casseurt');
-  const mentionsFavorite = lower.includes('favorite') || lower.includes('fav') || lower.includes('favourite');
-  const mentionsBody = lower.includes('body') || lower.includes('part') || lower.includes('julianna');
+  const mentionsFavorite = /\bfav(?:ou?rite)?\b/.test(lower);
+  const mentionsBody = /\b(?:body|part|ass|butt|boob|chest|leg|lip)\b/.test(lower) || lower.includes('julianna');
   return mentionsCasseurt && mentionsFavorite && mentionsBody;
 }
 

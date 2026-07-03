@@ -46,7 +46,10 @@ HARD RULES — these override everything else:
 13. Images: only flag if the image is CLEARLY a scam screenshot, phishing page, or extreme shock content.
 14. Server role/rank talk is safe by default — phrases like "will give u promotion", "giving [user] a role", "promoting [user] to mod/staff/admin", "[user] will give you a rank", "u got promoted", "congrats on the promotion" refer to Discord server roles, NOT financial schemes. Do NOT classify role/rank/staff discussion as scam UNLESS the same message also contains a suspicious link, a request for credentials/passwords, a payment/crypto ask, or a fake prize claim.
 15. Mentioning a specific Discord user by name or @mention alongside words like "promotion", "role", "rank", "staff", "mod", or "admin" is a server management conversation — classify as safe UNLESS the message simultaneously contains a clear scam signal (link to external site, ask for login info, send money, claim of free Nitro/prize).
-16. A scam requires clear deceptive INTENT plus at least one active ask or hook: a suspicious link, a request for credentials, a money/crypto transfer request, or a fake prize claim. A short conversational message with none of those elements cannot be a scam regardless of the words used.`;
+16. A scam requires clear deceptive INTENT plus at least one active ask or hook: a suspicious link, a request for credentials, a money/crypto transfer request, or a fake prize claim. A short conversational message with none of those elements cannot be a scam regardless of the words used.
+17. This is a bilingual EN/ES community server. Messages written partly or entirely in Spanish are completely normal and ALWAYS safe — do not treat Spanish as suspicious. Apply the same rules as English.
+18. REPORTING IS NOT OFFENDING. A user describing, quoting, forwarding, or reporting a scam/spam/suspicious message is ALWAYS safe — they are the victim or helper, not the threat. Messages like "alguien me mandó esto", "look at this scam I got", "is this phishing?", or quoting suspicious content to ask about it are SAFE.
+19. Members with moderation permissions discussing rule enforcement, quoting violations for review, or describing past incidents are ALWAYS acting safely. Moderator context (reviewing, warning, logging) cannot itself be a violation.`;
 
 const SYSTEM_PROMPT_WITH_CONTEXT = `You are a Discord server security analyst. Classify each message as ONE of:
 - **scam**: Deceptive messages targeting individuals — fake free Nitro/giveaways, impersonating staff or admins, phishing links disguised as legitimate sites, "send crypto to get more back" schemes, account-stealing attempts, fake prize DMs, impersonation of Discord itself
@@ -75,6 +78,9 @@ HARD RULES — these override everything else:
 14. Server role/rank talk is safe by default — phrases like "will give u promotion", "giving [user] a role", "promoting [user] to mod/staff/admin", "[user] will give you a rank", "u got promoted", "congrats on the promotion" refer to Discord server roles, NOT financial schemes. Do NOT classify role/rank/staff discussion as scam UNLESS the same message also contains a suspicious link, a request for credentials/passwords, a payment/crypto ask, or a fake prize claim.
 15. Mentioning a specific Discord user by name or @mention alongside words like "promotion", "role", "rank", "staff", "mod", or "admin" is a server management conversation — classify as safe UNLESS the message simultaneously contains a clear scam signal (link to external site, ask for login info, send money, claim of free Nitro/prize).
 16. A scam requires clear deceptive INTENT plus at least one active ask or hook: a suspicious link, a request for credentials, a money/crypto transfer request, or a fake prize claim. A short conversational message with none of those elements cannot be a scam regardless of the words used.
+17. This is a bilingual EN/ES community server. Messages written partly or entirely in Spanish are completely normal and ALWAYS safe — do not treat Spanish as suspicious. Apply the same rules as English.
+18. REPORTING IS NOT OFFENDING. A user describing, quoting, forwarding, or reporting a scam/spam/suspicious message is ALWAYS safe — they are the victim or helper, not the threat. Messages like "alguien me mandó esto", "look at this scam I got", "is this phishing?", or quoting suspicious content to ask about it are SAFE.
+19. Members with moderation permissions discussing rule enforcement, quoting violations for review, or describing past incidents are ALWAYS acting safely. Moderator context (reviewing, warning, logging) cannot itself be a violation.
 Context rule: Recent channel messages are provided. Only upgrade a classification to raid/spam/bot/scam if you see IDENTICAL messages from multiple accounts within seconds, or an obvious mass-flood pattern. A busy active chat is NOT a raid.`;
 
 let geminiClient = null;
@@ -507,9 +513,21 @@ export class AiModerationService {
         return;
       }
 
-      // Upgrade 4: Trusted role bypass
+      // Trusted role bypass + implicit staff bypass (ManageMessages = moderator)
       const member = message.member || await message.guild.members.fetch(message.author.id).catch(() => null);
-      if (member && aiConfig.trustedRoles?.length > 0) {
+      if (!member) {
+        // Cannot resolve member — skip moderation to avoid false-flagging staff
+        // whose guild cache entry may have temporarily expired.
+        logger.debug('AI moderation: could not resolve member, skipping to avoid false positive');
+        return;
+      }
+      // Server administrators and moderators (ManageMessages) are never flagged —
+      // they may quote violations, review incidents, or discuss rule enforcement.
+      if (member.permissions.has('ManageMessages')) {
+        logger.debug('User has moderation permissions, skipping AI moderation');
+        return;
+      }
+      if (aiConfig.trustedRoles?.length > 0) {
         const hasTrustedRole = aiConfig.trustedRoles.some(roleId => member.roles.cache.has(roleId));
         if (hasTrustedRole) {
           logger.debug('User has trusted role, skipping AI moderation');

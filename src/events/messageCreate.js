@@ -34,6 +34,10 @@ export default {
         return originalReply(...args);
       };
 
+      // Resolve ticket status ONCE — reused by all services that must stay
+      // silent in ticket channels (scam detection, AI mod, swear roasts, etc.)
+      const isTicketChannel = !!(await getTicketData(message.guild.id, message.channel.id).catch(() => null));
+
       // Non-reply services run in parallel (leveling, moderation, slowmode)
       await Promise.all([
         handleLeveling(message, client),
@@ -43,27 +47,16 @@ export default {
         RaidDetectionService.processMessage(message, client).catch(err =>
           logger.debug('Error in raid detection message processing:', err)
         ),
-        (async () => {
-          const ticketData = await getTicketData(message.guild.id, message.channel.id).catch(() => null);
-          if (ticketData) return; // never flag messages inside ticket channels
-          await handleScamDetection(message, client);
-        })().catch(err => logger.debug('Error in scam detection:', err)),
-        (async () => {
-          logger.debug('AI moderation: processMessage invoked', {
-            event: 'ai_moderation.invoked',
-            guildId: message.guild.id,
-            userId: message.author.id,
-            channelId: message.channel.id,
-            textLength: message.content?.length ?? 0,
-            attachmentCount: message.attachments?.size ?? 0
-          });
-          await AiModerationService.processMessage(message, client);
-          logger.debug('AI moderation: processMessage completed', {
-            event: 'ai_moderation.completed',
-            guildId: message.guild.id,
-            userId: message.author.id
-          });
-        })().catch(err => logger.debug('Error in AI moderation:', err)),
+        // Scam detection — skip in ticket channels
+        isTicketChannel ? Promise.resolve() :
+          handleScamDetection(message, client).catch(err =>
+            logger.debug('Error in scam detection:', err)
+          ),
+        // AI moderation — skip in ticket channels
+        isTicketChannel ? Promise.resolve() :
+          AiModerationService.processMessage(message, client).catch(err =>
+            logger.debug('Error in AI moderation:', err)
+          ),
         handleAutoSlowmode(message).catch(err =>
           logger.debug('Error in auto-slowmode handling:', err)
         ),
@@ -72,20 +65,23 @@ export default {
         ),
       ]);
 
-      // Reply services run sequentially — the monkey-patched message.reply
-      // guarantees at most one reply is ever sent regardless of overlap.
+      // AFK runs everywhere — useful even inside tickets
       await handleAfk(message, client).catch(err =>
         logger.debug('Error in AFK handling:', err)
       );
-      await handleAutomodSwear(message).catch(err =>
-        logger.debug('Error in automod swear handling:', err)
-      );
-      await handleJuliannaMention(message).catch(err =>
-        logger.debug('Error in Julianna mention handler:', err)
-      );
-      await handleChaosTriggers(message).catch(err =>
-        logger.debug('Error in chaos trigger handler:', err)
-      );
+
+      // Reply-based personality services — silent in ticket channels
+      if (!isTicketChannel) {
+        await handleAutomodSwear(message).catch(err =>
+          logger.debug('Error in automod swear handling:', err)
+        );
+        await handleJuliannaMention(message).catch(err =>
+          logger.debug('Error in Julianna mention handler:', err)
+        );
+        await handleChaosTriggers(message).catch(err =>
+          logger.debug('Error in chaos trigger handler:', err)
+        );
+      }
     } catch (error) {
       logger.error('Error in messageCreate event:', error);
     }

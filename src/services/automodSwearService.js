@@ -1,13 +1,15 @@
 // ── Insult words ──────────────────────────────────────────────────────────
+// Only words that are unambiguously hostile/targeted when directed at someone.
+// Removed casual slang (deadass, stfu, gtfo) and words so common in normal
+// chat that they fire constantly (idiot, loser, moron).
 const insultWords = [
   'fuck', 'shit', 'bitch', 'bastard', 'asshole', 'dick', 'cunt', 'cock',
   'motherfucker', 'bullshit', 'dumbass', 'dipshit', 'fuckhead', 'shithead',
   'wanker', 'tosser', 'twat', 'prick', 'arsehole', 'bellend', 'knobhead',
-  'douchebag', 'scumbag', 'idiot', 'moron', 'imbecile', 'loser', 'retard',
-  'whore', 'slut', 'skank', 'piss', 'jerk', 'jackass', 'schmuck',
+  'douchebag', 'scumbag', 'imbecile', 'retard',
+  'whore', 'slut', 'skank', 'jerk', 'jackass', 'schmuck',
   'numskull', 'meathead', 'blockhead', 'knucklehead', 'dimwit', 'halfwit',
-  'nitwit', 'fuckwit', 'twatwaffle', 'gobshite', 'eejit', 'manky',
-  'deadass', 'kys', 'stfu', 'gtfo',
+  'nitwit', 'fuckwit', 'twatwaffle', 'gobshite', 'kys',
 ];
 
 // Normalise leet-speak / spaced letters so bypasses are caught
@@ -183,8 +185,11 @@ export async function handleAutomodSwear(message) {
     return;
   }
 
-  // Plain-text @mention (user typed @name without autocomplete) + insult
-  if (/@\S/.test(message.content)) {
+  // Catch any remaining real Discord mention tokens that weren't picked up
+  // by message.mentions (e.g. rare cache-miss edge cases).  The /<@!?\d+>/
+  // pattern is intentional — it only matches actual Discord mention tokens,
+  // never plain text like @name or email addresses like user@domain.com.
+  if (/<@!?\d+>/.test(message.content)) {
     await message.channel.send({
       reply: { messageReference: message.id },
       content: pickRandom(replies)(message.mentions.users.first() ?? 'them'),
