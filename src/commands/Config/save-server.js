@@ -57,6 +57,7 @@ export default {
             description += `**Roles Captured / Roles Capturados:** ${totalRoles}\n`;
             description += `**Channels Captured / Canales Capturados:** ${totalChannels}\n`;
             description += `**Categories Captured / Categorias Capturadas:** ${totalCategories}\n`;
+            description += `**Server Settings:** ✅ Captured\n`;
             description += `**Saves Remaining / Guardados Restantes:** ${MAX_SAVES_PER_GUILD - existingSaves.length}/${MAX_SAVES_PER_GUILD}`;
 
             if (result.overwritten) {

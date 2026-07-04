@@ -72,24 +72,37 @@ export default {
             const results = await restoreServerFromSnapshot(guild, snapshot);
 
             // Build the results embed
+            const nothingCreated = results.rolesCreated === 0 &&
+                                   results.categoriesCreated === 0 &&
+                                   results.channelsCreated === 0;
+
             const embed = new EmbedBuilder()
                 .setColor(getColor('success'))
                 .setTitle('Restoration Complete / Restauracion Completa')
-                .setDescription(`Successfully restored from backup \`${saveId}\`.\n\nSe restauro exitosamente desde la copia de seguridad \`${saveId}\`.`)
+                .setDescription(
+                    nothingCreated
+                        ? `Everything already existed — settings and permissions updated.\n\nTodo ya existía — configuración y permisos actualizados.`
+                        : `Successfully restored from backup \`${saveId}\`.\n\nSe restauro exitosamente desde la copia de seguridad \`${saveId}\`.`
+                )
                 .addFields(
                     {
-                        name: 'Roles Created / Roles Creados',
-                        value: results.rolesCreated.toString(),
+                        name: 'Roles',
+                        value: `Created: **${results.rolesCreated}**\nUpdated: **${results.rolesUpdated}**`,
                         inline: true
                     },
                     {
-                        name: 'Categories Created / Categorias Creadas',
-                        value: results.categoriesCreated.toString(),
+                        name: 'Categories',
+                        value: `Created: **${results.categoriesCreated}**\nUpdated: **${results.categoriesUpdated}**`,
                         inline: true
                     },
                     {
-                        name: 'Channels Created / Canales Creados',
-                        value: results.channelsCreated.toString(),
+                        name: 'Channels',
+                        value: `Created: **${results.channelsCreated}**\nUpdated: **${results.channelsUpdated}**`,
+                        inline: true
+                    },
+                    {
+                        name: 'Server Settings',
+                        value: results.settingsRestored ? '✅ Restored' : '⚠️ Skipped (no change or no permission)',
                         inline: true
                     },
                     {
@@ -115,12 +128,6 @@ export default {
                     inline: false
                 });
                 embed.setColor(getColor('warning'));
-            }
-
-            // If nothing was restored
-            if (results.rolesCreated === 0 && results.categoriesCreated === 0 && results.channelsCreated === 0) {
-                embed.setDescription(`All roles and channels from the backup already exist in the server!\n\n¡Todos los roles y canales de la copia de seguridad ya existen en el servidor!`);
-                embed.setColor(getColor('info'));
             }
 
             await interaction.editReply({
