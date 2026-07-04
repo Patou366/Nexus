@@ -31,8 +31,8 @@ export default {
                         name: '⚙️ PARTNERSHIP RULES & PING TIERS',
                         value:
                             'Our ping policy depends entirely on your server\'s size:\n\n' +
-                            '🟢 **Tier 1 (2,000+ Members):** We will post your ad in #🤝・partnerships and use our **Culés Ping** role to give your server maximum exposure.\n' +
-                            '🟡 **Tier 2 (1,200 – 1,999 Members):** We will gladly post your ad in #🤝・partnerships, but it will be **without a ping**.',
+                            '🟢 **Tier 1 (2,000+ Members):** We will post your ad in <#1476744126228729976> and use our **Culés Ping** role to give your server maximum exposure.\n' +
+                            '🟡 **Tier 2 (1,200 – 1,999 Members):** We will gladly post your ad in <#1476744126228729976>, but it will be **without a ping**.',
                         inline: false
                     },
                     {
