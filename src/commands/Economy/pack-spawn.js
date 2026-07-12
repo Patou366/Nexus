@@ -85,7 +85,7 @@ export default {
           { name: '📦 Available', value: `${quantity} pack${quantity !== 1 ? 's' : ''}`, inline: true },
           { name: '💰 Value', value: `${pack.price.toLocaleString()} ${config.currencyEmoji} each`, inline: true },
         ],
-        footer: { text: 'First come, first served!' },
+        footer: { text: 'First come, first served! • 🧪 In beta (Testing)' },
       });
 
       const row = new ActionRowBuilder().addComponents(

@@ -54,6 +54,7 @@ export default {
             : `😬 You lost **-${amount.toLocaleString()} ${config.currencyEmoji}**.`) +
           `\n\n💰 Balance: **${result.newTotal.toLocaleString()} ${config.currencyName}**`,
         color: result.won ? 'success' : 'error',
+        footer: { text: '🧪 In beta (Testing)' },
       });
 
       await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });

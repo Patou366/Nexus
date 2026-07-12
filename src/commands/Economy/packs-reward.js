@@ -42,6 +42,7 @@ export default {
         `${config.currencyEmoji} Coins Rewarded`,
         `**${target}** has been rewarded **${amount.toLocaleString()} ${config.currencyName}**!\n\n📝 **Reason:** ${reason}`
       );
+      embed.setFooter({ text: '🧪 In beta (Testing)' });
       await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
 
       try {
@@ -50,6 +51,7 @@ export default {
             title: `${config.currencyEmoji} You received a reward!`,
             description: `An admin rewarded you **${amount.toLocaleString()} ${config.currencyName}** in **${interaction.guild.name}**!\n\n📝 **Reason:** ${reason}`,
             color: 'success',
+            footer: { text: '🧪 In beta (Testing)' },
           })],
         });
       } catch {}

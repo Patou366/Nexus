@@ -34,6 +34,7 @@ export default {
           `💰 New balance: **${result.newTotal.toLocaleString()} ${config.currencyName}**\n` +
           `⏰ Next shift: <t:${Math.floor((Date.now() + (config.workCooldown || 4 * 60 * 60 * 1000)) / 1000)}:R>`,
         color: 'success',
+        footer: { text: '🧪 In beta (Testing)' },
       });
 
       await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });

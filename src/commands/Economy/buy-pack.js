@@ -85,6 +85,7 @@ export default {
             `📦 Your pack is in inventory — use \`/open-pack\` to open it.\n` +
             `👝 Wallet: **${newBalance.coins.toLocaleString()} ${config.currencyEmoji}**`
           );
+          embed.setFooter({ text: '🧪 In beta (Testing)' });
           return InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
         }
 
@@ -95,6 +96,7 @@ export default {
           `✨ **You got:** ${reward.label}\n\n` +
           `👝 Wallet: **${newBalance.coins.toLocaleString()} ${config.currencyEmoji}**`
         );
+        embed.setFooter({ text: '🧪 In beta (Testing)' });
 
         return InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       } else {
@@ -104,6 +106,7 @@ export default {
           `📦 The pack has been added to your inventory. Use \`/open-pack\` when ready!\n` +
           `👝 Wallet: **${purchase.remaining.toLocaleString()} ${config.currencyEmoji}**`
         );
+        embed.setFooter({ text: '🧪 In beta (Testing)' });
 
         return InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       }

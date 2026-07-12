@@ -64,7 +64,7 @@ export default {
             `⚠️ *Tip: Bank your coins with \`/bank deposit\` to keep them safe!*`,
           color: 'success',
           thumbnail: target.displayAvatarURL({ size: 64 }),
-          footer: { text: `Success rate: ${config.robSuccessRate ?? 45}% • Cooldown: ${cooldownMins}m • Next attempt: <t:${nextRobTs}:R>` },
+          footer: { text: `Success rate: ${config.robSuccessRate ?? 45}% • Cooldown: ${cooldownMins}m • Next attempt: <t:${nextRobTs}:R> • 🧪 In beta (Testing)` },
         });
         await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       } else {
@@ -75,7 +75,7 @@ export default {
             `💸 You were fined **${result.fine.toLocaleString()} ${config.currencyEmoji}** as punishment.`,
           color: 'error',
           thumbnail: target.displayAvatarURL({ size: 64 }),
-          footer: { text: `Next attempt: <t:${nextRobTs}:R>` },
+          footer: { text: `Next attempt: <t:${nextRobTs}:R> • 🧪 In beta (Testing)` },
         });
         await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       }

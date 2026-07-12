@@ -42,6 +42,7 @@ export default {
         description: `Your balance: **${balance.coins.toLocaleString()} ${config.currencyEmoji}**\n\nUse \`/buy-pack\` to purchase a pack!`,
         color: 'primary',
         fields,
+        footer: { text: '🧪 In beta (Testing)' },
       });
 
       await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });

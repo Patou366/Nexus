@@ -103,7 +103,7 @@ export function buildDashboardEmbed(config) {
         inline: false,
       },
     ],
-    footer: { text: 'Use the buttons below to edit settings • Changes save immediately' },
+    footer: { text: 'Use the buttons below to edit settings • Changes save immediately • 🧪 In beta (Testing)' },
   });
 }
 

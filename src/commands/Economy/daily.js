@@ -39,6 +39,7 @@ export default {
         `💰 New balance: **${result.newTotal.toLocaleString()} ${config.currencyName}**\n` +
         `⏰ Next claim: <t:${Math.floor((Date.now() + 86400000) / 1000)}:R>`
       );
+      embed.setFooter({ text: '🧪 In beta (Testing)' });
 
       await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
     } catch (error) {

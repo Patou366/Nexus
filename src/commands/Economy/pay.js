@@ -58,6 +58,7 @@ export default {
           `💰 Your new balance: **${result.fromTotal.toLocaleString()} ${config.currencyName}**`,
         color: 'success',
         thumbnail: target.displayAvatarURL({ size: 64 }),
+        footer: { text: '🧪 In beta (Testing)' },
       });
 
       await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });

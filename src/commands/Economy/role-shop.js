@@ -42,9 +42,9 @@ export default {
       }
 
       if (config.shopFooter) {
-        embed.setFooter({ text: config.shopFooter });
+        embed.setFooter({ text: `${config.shopFooter} • 🧪 In beta (Testing)` });
       } else {
-        embed.setFooter({ text: `Your balance: ${userCoins.toLocaleString()} ${config.currencyEmoji}` });
+        embed.setFooter({ text: `Your balance: ${userCoins.toLocaleString()} ${config.currencyEmoji} • 🧪 In beta (Testing)` });
       }
 
       if (items.length === 0) {

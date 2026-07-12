@@ -57,7 +57,7 @@ export default {
           outcomeText +
           `\n\n💰 Balance: **${result.newTotal.toLocaleString()} ${config.currencyName}**`,
         color,
-        footer: { text: '🍒×2 | 🍋×2.5 | 🍇×3 | ⭐×5 | 💎×8 | 7️⃣×15' },
+        footer: { text: '🍒×2 | 🍋×2.5 | 🍇×3 | ⭐×5 | 💎×8 | 7️⃣×15 • 🧪 In beta (Testing)' },
       });
 
       await InteractionHelper.safeEditReply(interaction, { embeds: [embed] });

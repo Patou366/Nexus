@@ -71,7 +71,7 @@ export default {
             },
           ],
           thumbnail: target.displayAvatarURL({ size: 64 }),
-          footer: { text: 'Use /bank deposit to protect your coins from thieves!' },
+          footer: { text: 'Use /bank deposit to protect your coins from thieves! • 🧪 In beta (Testing)' },
         });
 
         return InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
@@ -102,6 +102,7 @@ export default {
           `👝 Wallet: **${result.wallet.toLocaleString()}** ${config.currencyEmoji}\n` +
           `🏦 Bank: **${result.bank.toLocaleString()}** ${config.currencyEmoji}`
         );
+        embed.setFooter({ text: '🧪 In beta (Testing)' });
 
         return InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       }
@@ -131,6 +132,7 @@ export default {
           `👝 Wallet: **${result.wallet.toLocaleString()}** ${config.currencyEmoji}\n` +
           `🏦 Bank: **${result.bank.toLocaleString()}** ${config.currencyEmoji}`
         );
+        embed.setFooter({ text: '🧪 In beta (Testing)' });
 
         return InteractionHelper.safeEditReply(interaction, { embeds: [embed] });
       }
