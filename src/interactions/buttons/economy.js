@@ -393,6 +393,44 @@ async function handleDashboard(interaction, action, guildId) {
       );
     }
 
+    // ── Edit Item Price ───────────────────────────────────────────────────────
+    if (action === 'edit_item_price') {
+      const items = config.shopItems || [];
+      const itemList = items.map((item, i) => `${i + 1}. ${item.emoji} ${item.name} — ${item.price.toLocaleString()} ${config.currencyEmoji}`).join('\n');
+      return interaction.showModal(
+        new ModalBuilder()
+          .setCustomId(`econ_modal:edit_item_price:${guildId}`)
+          .setTitle('Edit Shop Item Price')
+          .addComponents(
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('shopItemId')
+                .setLabel('Item Name or ID to edit')
+                .setStyle(TextInputStyle.Short)
+                .setPlaceholder('e.g. VIP Role')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('newPrice')
+                .setLabel('New Price (in coins)')
+                .setStyle(TextInputStyle.Short)
+                .setMaxLength(10)
+                .setPlaceholder('e.g. 3000')
+                .setRequired(true)
+            ),
+            new ActionRowBuilder().addComponents(
+              new TextInputBuilder()
+                .setCustomId('itemListHint')
+                .setLabel('Current items (read-only reference)')
+                .setStyle(TextInputStyle.Paragraph)
+                .setValue(itemList.substring(0, 400) || 'No items configured.')
+                .setRequired(false)
+            )
+          )
+      );
+    }
+
     // ── Remove Shop Item ──────────────────────────────────────────────────────
     if (action === 'remove_shop_item') {
       return interaction.showModal(

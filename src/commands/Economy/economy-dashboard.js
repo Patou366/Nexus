@@ -173,6 +173,11 @@ export function buildDashboardRows(config, guildId) {
       .setStyle(ButtonStyle.Danger)
       .setDisabled(!hasItems),
     new ButtonBuilder()
+      .setCustomId(`econ_dashboard:edit_item_price:${gid}`)
+      .setLabel('Edit Item Price')
+      .setStyle(ButtonStyle.Primary)
+      .setDisabled(!hasItems),
+    new ButtonBuilder()
       .setCustomId(`econ_dashboard:edit_shop_style:${gid}`)
       .setLabel('Edit Shop Style')
       .setStyle(ButtonStyle.Secondary)

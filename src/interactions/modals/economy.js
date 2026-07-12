@@ -237,6 +237,36 @@ async function handleAddShopItemModal(interaction, guildId) {
   await refreshDashboard(interaction, guildId);
 }
 
+// ─── Edit Shop Item Price ─────────────────────────────────────────────────────
+async function handleEditItemPriceModal(interaction, guildId) {
+  const input = interaction.fields.getTextInputValue('shopItemId').trim().toLowerCase();
+  const newPriceRaw = parseInt(interaction.fields.getTextInputValue('newPrice'));
+
+  if (isNaN(newPriceRaw) || newPriceRaw < 1) {
+    return interaction.reply({ embeds: [errorEmbed('❌ Invalid Price', 'Price must be a positive number.')], ephemeral: true });
+  }
+
+  const config = await getEconomyConfig(guildId);
+  const itemIndex = (config.shopItems || []).findIndex(i => i.id === input || i.name.toLowerCase() === input);
+
+  if (itemIndex === -1) {
+    return interaction.reply({ embeds: [errorEmbed('❌ Not Found', `No shop item found matching \`${input}\`. Use the exact item name or ID.`)], ephemeral: true });
+  }
+
+  const oldPrice = config.shopItems[itemIndex].price;
+  config.shopItems[itemIndex].price = newPriceRaw;
+  await saveEconomyConfig(guildId, { shopItems: config.shopItems });
+
+  config.shopItems[itemIndex].price = newPriceRaw;
+  await saveEconomyConfig(guildId, { shopItems: config.shopItems });
+
+  config._guildId = guildId;
+  await interaction.update({
+    embeds: [buildDashboardEmbed(config)],
+    components: buildDashboardRows(config, guildId),
+  });
+}
+
 // ─── Remove Shop Item ─────────────────────────────────────────────────────────
 async function handleRemoveShopItemModal(interaction, guildId) {
   const input = interaction.fields.getTextInputValue('shopItemId').trim().toLowerCase();
@@ -315,6 +345,7 @@ export default [
         if (action === 'remove_pack')      return handleRemovePackModal(interaction, guildId);
         if (action === 'add_shop_item')    return handleAddShopItemModal(interaction, guildId);
         if (action === 'remove_shop_item') return handleRemoveShopItemModal(interaction, guildId);
+        if (action === 'edit_item_price')  return handleEditItemPriceModal(interaction, guildId);
         if (action === 'shop_style')       return handleShopStyleModal(interaction, guildId);
         if (action === 'jackpot_channel')  return handleJackpotChannelModal(interaction, guildId);
 
