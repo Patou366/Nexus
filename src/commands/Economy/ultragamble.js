@@ -73,6 +73,7 @@ export default {
       const embed = createEmbed({
         title: '⚠️ ULTRA GAMBLE',
         description:
+          '⚠️ **ULTRA GAMBLING** — 🧪 **IN BETA (TESTING)** ⚠️\n\n' +
           banner + '\n' +
           `${outcome.desc}\n\n` +
           `${changeText}\n` +
