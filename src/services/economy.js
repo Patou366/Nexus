@@ -548,6 +548,41 @@ export async function buyPack(guildId, userId, packId) {
   });
 }
 
+// ─── Ultra Gamble ─────────────────────────────────────────────────────────────
+const ULTRA_OUTCOMES = [
+  { id: 'wipeout',  label: '💀 WIPEOUT',       multiplier: 0,    chance: 20,  color: 'error',   desc: 'You lost everything. Walk of shame.'              },
+  { id: 'inferno',  label: '🔥 INFERNO',        multiplier: 0.25, chance: 20,  color: 'error',   desc: 'The house burned 75% of your bet.'                },
+  { id: 'shock',    label: '⚡ SHOCK',           multiplier: 1,    chance: 10,  color: 'warning', desc: 'You got your coins back. Lucky escape.'           },
+  { id: 'sharp',    label: '🎯 SHARP',           multiplier: 2,    chance: 15,  color: 'success', desc: 'Clean double. Not bad at all.'                    },
+  { id: 'diamond',  label: '💎 DIAMOND',         multiplier: 5,    chance: 12,  color: 'success', desc: 'Five times your bet. Sparkling!'                  },
+  { id: 'royal',    label: '👑 ROYAL',           multiplier: 10,   chance: 10,  color: 'success', desc: 'Ten times the bet. You\'re royalty.'              },
+  { id: 'cosmic',   label: '🌌 COSMIC',          multiplier: 20,   chance: 8,   color: 'success', desc: '20x! The universe is on your side.'               },
+  { id: 'ultra',    label: '🌟 ULTRA JACKPOT',   multiplier: 50,   chance: 5,   color: 'success', desc: '50x ULTRA WIN. You are absolutely unhinged.'      },
+];
+
+export async function playUltraGamble(guildId, userId, bet) {
+  return withLock(lockKey(guildId, userId), async () => {
+    const bal = await _readBalance(guildId, userId);
+    const wallet = bal.coins || 0;
+    if (wallet < bet) return { success: false, reason: 'funds', have: wallet };
+
+    const roll = Math.random() * 100;
+    let cumulative = 0;
+    let outcome = ULTRA_OUTCOMES[ULTRA_OUTCOMES.length - 1];
+    for (const o of ULTRA_OUTCOMES) {
+      cumulative += o.chance;
+      if (roll < cumulative) { outcome = o; break; }
+    }
+
+    const winnings = Math.floor(bet * outcome.multiplier);
+    const netChange = winnings - bet;
+    const newCoins = Math.max(0, wallet + netChange);
+    await _writeBalance(guildId, userId, { ...bal, coins: newCoins });
+
+    return { success: true, outcome, bet, winnings, netChange, newCoins };
+  });
+}
+
 // ─── Bank (deposit / withdraw) ────────────────────────────────────────────────
 // Bank coins cannot be stolen by /rob — only wallet coins (coins) are at risk.
 export async function depositCoins(guildId, userId, amount) {
