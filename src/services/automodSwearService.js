@@ -66,24 +66,6 @@ function getGemini() {
   return _gemini;
 }
 
-// ─── Per-user cooldown (10 s) ─────────────────────────────────────────────────
-// Each user gets their own Gemini response — only throttled if they personally
-// spam. Different users in the same guild each get a fresh call.
-const userCooldowns = new Map();
-const USER_COOLDOWN_MS = 10_000;
-
-function userOnCooldown(userId) {
-  return Date.now() - (userCooldowns.get(userId) ?? 0) < USER_COOLDOWN_MS;
-}
-function setUserCooldown(userId) {
-  userCooldowns.set(userId, Date.now());
-  // Cleanup stale entries every 100 inserts to avoid unbounded growth
-  if (userCooldowns.size > 500) {
-    const cutoff = Date.now() - USER_COOLDOWN_MS * 2;
-    for (const [k, v] of userCooldowns) if (v < cutoff) userCooldowns.delete(k);
-  }
-}
-
 // ─── Context fetcher ─────────────────────────────────────────────────────────
 // Grabs the last 4 messages before the triggering one so Gemini understands
 // what the conversation was actually about.
@@ -351,7 +333,6 @@ export async function handleAutomodSwear(message) {
   if (message.author.bot) return;
   if (!message.guild)     return;
   if (!message.content)   return;
-  if (!containsSwear(message.content)) return;
 
   const config = await getSwearAutomodConfig(message.guild.id);
   if (!config.enabled) return;
@@ -369,7 +350,6 @@ export async function handleAutomodSwear(message) {
   })();
 
   const attackerName = message.member?.displayName ?? message.author.username;
-  const userId       = message.author.id;
   const spanish      = isSpanish(message.content);
 
   // Determine scenario ──────────────────────────────────────────────────────────
@@ -392,20 +372,15 @@ export async function handleAutomodSwear(message) {
   message.channel.sendTyping().catch(() => null);
 
   // Generate response ───────────────────────────────────────────────────────────
-  let reply = null;
-
-  if (!userOnCooldown(userId)) {
-    setUserCooldown(userId);
-    const context = await fetchContext(message.channel, message.id);
-    reply = await generateGeminiReply({
-      scenario,
-      messageContent: message.content.slice(0, 400),
-      attackerName,
-      targetName,
-      context,
-      spanish,
-    });
-  }
+  const context = await fetchContext(message.channel, message.id);
+  let reply = await generateGeminiReply({
+    scenario,
+    messageContent: message.content.slice(0, 400),
+    attackerName,
+    targetName,
+    context,
+    spanish,
+  });
 
   // Fallback ────────────────────────────────────────────────────────────────────
   if (!reply) {
