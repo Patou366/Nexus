@@ -341,13 +341,23 @@ export async function handleAutomodSwear(message) {
   const mentionedOthers = message.mentions.users.filter(u => !u.bot && u.id !== message.author.id);
   const hasMentionToken = /<@!?\d+>/.test(message.content);
 
-  // Detect if this message is a reply to one of the bot's own messages
-  const isReplyToBot = !!message.reference && await (async () => {
+  // Resolve the referenced message (reply target) once — covers both
+  // "reply to bot" and "reply to a friend without @mentioning them".
+  let isReplyToBot  = false;
+  let replyTarget   = null; // the User object being replied to (if non-bot)
+
+  if (message.reference) {
     try {
       const ref = await message.channel.messages.fetch(message.reference.messageId).catch(() => null);
-      return ref?.author?.id === message.client.user.id;
-    } catch { return false; }
-  })();
+      if (ref) {
+        if (ref.author.id === message.client.user.id) {
+          isReplyToBot = true;
+        } else if (!ref.author.bot && ref.author.id !== message.author.id) {
+          replyTarget = ref.author; // replying to a real user without @mentioning them
+        }
+      }
+    } catch { /* ignore */ }
+  }
 
   const attackerName = message.member?.displayName ?? message.author.username;
   const spanish      = isSpanish(message.content);
@@ -358,12 +368,10 @@ export async function handleAutomodSwear(message) {
   if (botMentioned || isReplyToBot) {
     scenario   = 'self';
     targetName = null;
-  } else if (mentionedOthers.size > 0 || hasMentionToken) {
+  } else if (mentionedOthers.size > 0 || hasMentionToken || replyTarget) {
     scenario   = 'defend';
-    const tgt  = mentionedOthers.first();
-    targetName = tgt
-      ? (tgt.displayName ?? tgt.username)
-      : 'them';
+    const tgt  = mentionedOthers.first() ?? replyTarget;
+    targetName = tgt ? (tgt.displayName ?? tgt.username) : 'them';
   } else {
     return; // no relevant target — don't fire
   }
