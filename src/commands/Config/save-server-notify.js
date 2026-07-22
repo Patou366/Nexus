@@ -10,12 +10,12 @@ import { getAutoSaveConfig, setAutoSaveConfig } from '../../services/autoSaveSer
 export default {
     data: new SlashCommandBuilder()
         .setName('save-server-notify')
-        .setDescription('Configure the channel for automatic server backup notifications / Configurar canal de notificaciones de respaldo automático')
+        .setDescription('Set the auto-save notification channel / Canal de notificaciones de respaldo automático')
         .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
         .addSubcommand(sub =>
             sub
                 .setName('set')
-                .setDescription('Set the notification channel for auto-saves / Establecer el canal de notificaciones de respaldo automático')
+                .setDescription('Set the channel for auto-save notifications / Establecer canal de notificaciones')
                 .addChannelOption(opt =>
                     opt
                         .setName('channel')
