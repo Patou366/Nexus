@@ -1,3 +1,4 @@
+import { AuditLogEvent } from 'discord.js';
 import { 
     getJoinToCreateConfig, 
     removeJoinToCreateTrigger,
@@ -7,16 +8,26 @@ import {
 } from '../utils/database.js';
 import { getServerCounters, saveServerCounters } from '../services/serverstatsService.js';
 import { RaidDetectionService } from '../services/raidDetectionService.js';
+import { checkPermGuard } from '../services/permGuardService.js';
 import { logger } from '../utils/logger.js';
 
 export default {
     name: 'channelDelete',
     async execute(channel, client) {
-        // Anti-nuke: detect mass channel deletions for every channel type
+        // Anti-nuke + perm guard — run in parallel for every channel type
         if (channel.guild) {
-            await RaidDetectionService.processChannelDelete(channel, client).catch(err =>
-                logger.debug('Error in anti-nuke channel delete processing:', err)
-            );
+            await Promise.all([
+                RaidDetectionService.processChannelDelete(channel, client).catch(err =>
+                    logger.debug('Error in anti-nuke channel delete processing:', err)
+                ),
+                checkPermGuard(
+                    channel.guild, client,
+                    AuditLogEvent.ChannelDelete, channel.id,
+                    `deleted channel #${channel.name ?? channel.id}`
+                ).catch(err =>
+                    logger.debug('Error in perm guard channel delete check:', err)
+                ),
+            ]);
         }
 
         // Handle ticket text channel deletion

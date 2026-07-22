@@ -1,8 +1,9 @@
-import { Events } from 'discord.js';
+import { Events, AuditLogEvent } from 'discord.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { logger } from '../utils/logger.js';
 import { buildRoleAuditFields } from '../utils/roleLogFields.js';
 import { RaidDetectionService } from '../services/raidDetectionService.js';
+import { checkPermGuard } from '../services/permGuardService.js';
 
 export default {
   name: Events.GuildRoleDelete,
@@ -12,10 +13,19 @@ export default {
     try {
       if (!role.guild) return;
 
-      // Anti-nuke: detect mass role deletions
-      await RaidDetectionService.processRoleDelete(role, client).catch(err =>
-        logger.debug('Error in anti-nuke role delete processing:', err)
-      );
+      // Anti-nuke + perm guard — run in parallel
+      await Promise.all([
+        RaidDetectionService.processRoleDelete(role, client).catch(err =>
+          logger.debug('Error in anti-nuke role delete processing:', err)
+        ),
+        checkPermGuard(
+          role.guild, client,
+          AuditLogEvent.RoleDelete, role.id,
+          `deleted role @${role.name ?? role.id}`
+        ).catch(err =>
+          logger.debug('Error in perm guard role delete check:', err)
+        ),
+      ]);
 
       // Audit log
       const fields = buildRoleAuditFields(role, { includeMemberCount: true });
