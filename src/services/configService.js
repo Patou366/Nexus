@@ -41,7 +41,6 @@ const CONFIG_VALIDATION_RULES = {
     prefix: { type: 'string', required: false, maxLength: 10, minLength: 1 },
     dmOnClose: { type: 'boolean', required: false },
     maxTicketsPerUser: { type: 'number', required: false, min: 1, max: 50 },
-    birthdayChannelId: { type: 'channel', required: false },
     logIgnore: { type: 'object', required: false },
     logging: { type: 'object', required: false }
 };
@@ -49,7 +48,6 @@ const CONFIG_VALIDATION_RULES = {
 
 const SETTING_CONFLICTS = {
     'logChannelId': ['logging'],
-    'birthdayChannelId': [],
     'reportChannelId': [],
     'logging': ['logChannelId']
 };
@@ -64,7 +62,6 @@ const ConfigValueSchemas = Object.freeze({
     prefix: z.string().min(1).max(10),
     dmOnClose: z.boolean(),
     maxTicketsPerUser: z.number().int().min(1).max(50),
-    birthdayChannelId: z.union([z.string().min(1), z.object({ id: z.string().min(1) })]),
     logIgnore: LogIgnoreSchema,
     logging: LoggingConfigSchema,
 });

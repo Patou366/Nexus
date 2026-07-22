@@ -16,7 +16,6 @@ export default {
                 `⚠️ **THIS ACTION IS IRREVERSIBLE!** ⚠️\n\n` +
                 `This will permanently delete **ALL** your data from this server including:\n` +
                 `• 📊 Levels and XP\n` +
-                `• 🎂 Birthday information\n` +
                 `• 🔢 Counter data\n` +
                 `• 📋 All other personal data\n\n` +
                 `**This cannot be undone. Are you absolutely sure?**`;

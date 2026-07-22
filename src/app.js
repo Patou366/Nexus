@@ -9,8 +9,8 @@ import { initializeDatabase } from './utils/database.js';
 import { getGuildConfig } from './services/guildConfig.js';
 import { getServerCounters, saveServerCounters, updateCounter } from './services/serverstatsService.js';
 import { logger, startupLog, shutdownLog } from './utils/logger.js';
-import { checkBirthdays } from './services/birthdayService.js';
 import { checkGiveaways } from './services/giveawayService.js';
+import { runAutoSave } from './services/autoSaveService.js';
 import { loadCommands, registerCommands as registerSlashCommands } from './handlers/commandLoader.js';
 
 class TitanBot extends Client {
@@ -275,8 +275,8 @@ class TitanBot extends Client {
   }
 
   setupCronJobs() {
-    cron.schedule('0 6 * * *', () => checkBirthdays(this));
     cron.schedule('* * * * *', () => checkGiveaways(this));
+    cron.schedule('0 0 * * *', () => runAutoSave(this));
     cron.schedule('*/15 * * * *', () => this.updateAllCounters());
     // Poll DB every 5 minutes and apply botStatus if it changed
     cron.schedule('*/5 * * * *', () => this.syncBotStatusFromDb());

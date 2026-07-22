@@ -31,7 +31,6 @@ const CATEGORY_ICONS = {
     Search: "🔍",
     Reaction_Roles: "🎭",
     Community: "👥",
-    Birthday: "🎂",
     Config: "⚙️",
 };
 

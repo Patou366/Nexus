@@ -35,7 +35,6 @@ const CATEGORY_ICONS = {
     Search: "🔍",
     Reaction_Roles: "🎭",
     Community: "👥",
-    Birthday: "🎂",
     Config: "⚙️",
 };
 
@@ -107,11 +106,6 @@ export async function createInitialHelpMenu(client) {
         {
             name: "👋 **Welcome / Bienvenida**",
             value: "Member welcome messages and onboarding / Mensajes de bienvenida y orientacion de miembros",
-            inline: true
-        },
-        {
-            name: "🎂 **Birthdays / Cumpleanos**",
-            value: "Birthday tracking and celebration features / Seguimiento de cumpleanos y funciones de celebracion",
             inline: true
         },
         {

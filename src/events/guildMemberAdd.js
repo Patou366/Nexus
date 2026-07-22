@@ -5,7 +5,6 @@ import { getWelcomeConfig } from '../utils/database.js';
 import { formatWelcomeMessage } from '../utils/welcome.js';
 import { logEvent, EVENT_TYPES } from '../services/loggingService.js';
 import { getServerCounters, updateCounter } from '../services/serverstatsService.js';
-import { setBirthday as dbSetBirthday } from '../utils/database.js';
 import { logger } from '../utils/logger.js';
 import { checkAndAnnounceMilestone } from '../services/milestoneService.js';
 import { RaidDetectionService } from '../services/raidDetectionService.js';
@@ -152,21 +151,6 @@ export default {
             logger.debug('Error updating counters on member join:', error);
         }
         
-        // Restore birthday data if the member previously left
-        try {
-            const backupKey = `guild:${guild.id}:birthdays:left`;
-            const backup = (await member.client.db.get(backupKey)) || {};
-            if (backup[user.id]) {
-                const { month, day } = backup[user.id];
-                await dbSetBirthday(member.client, guild.id, user.id, month, day);
-                delete backup[user.id];
-                await member.client.db.set(backupKey, backup);
-                logger.debug(`Birthday restored for user ${user.id} in guild ${guild.id}`);
-            }
-        } catch (error) {
-            logger.debug('Error restoring birthday on member join:', error);
-        }
-
         // Check for milestone announcements
         try {
             const milestoneResult = await checkAndAnnounceMilestone(member.client, guild, member, guild.memberCount);

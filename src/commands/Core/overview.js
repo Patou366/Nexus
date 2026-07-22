@@ -51,13 +51,12 @@ export default {
             const autoRoleId = guildConfig.autoRole || welcomeConfig?.roleIds?.[0];
 
             // ── Channels ──────────────────────────────────────────────────────
-            const [auditChannel, lifecycleChannel, transcriptChannel, reportChannel, birthdayChannel] =
+            const [auditChannel, lifecycleChannel, transcriptChannel, reportChannel] =
                 await Promise.all([
                     formatChannelMention(interaction.guild, loggingStatus.channelId || guildConfig.logging?.channelId || guildConfig.logChannelId),
                     formatChannelMention(interaction.guild, guildConfig.ticketLogsChannelId),
                     formatChannelMention(interaction.guild, guildConfig.ticketTranscriptChannelId),
                     formatChannelMention(interaction.guild, guildConfig.reportChannelId),
-                    formatChannelMention(interaction.guild, guildConfig.birthdayChannelId),
                 ]);
 
             const embed = new EmbedBuilder()
@@ -73,7 +72,6 @@ export default {
                             `📈 **Leveling** — ${pill(Boolean(levelingConfig?.enabled))}`,
                             `👋 **Welcome** — ${pill(Boolean(welcomeConfig?.enabled))}`,
                             `👋 **Goodbye** — ${pill(Boolean(welcomeConfig?.goodbyeEnabled))}`,
-                            `🎂 **Birthdays** — ${pill(Boolean(guildConfig.birthdayChannelId))}`,
                             `📋 **Applications** — ${pill(Boolean(applicationConfig?.enabled))}`,
                             `✅ **Verification** — ${pill(verificationEnabled)}`,
                             `🤖 **Auto-Verify** — ${pill(autoVerifyEnabled)}`,
@@ -90,7 +88,6 @@ export default {
                             `**Ticket Lifecycle:** ${lifecycleChannel}`,
                             `**Ticket Transcripts:** ${transcriptChannel}`,
                             `**Reports:** ${reportChannel}`,
-                            `**Birthdays:** ${birthdayChannel}`,
                         ].join('\n'),
                         inline: false,
                     },

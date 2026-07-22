@@ -55,7 +55,6 @@ export const GuildConfigSchema = z
     autoRole: z.string().nullable().optional(),
     dmOnClose: z.boolean().optional(),
     reportChannelId: z.string().nullable().optional(),
-    birthdayChannelId: z.string().nullable().optional(),
     premiumRoleId: z.string().nullable().optional(),
     staffSuggestionChannelId: z.string().nullable().optional(),
     logIgnore: LogIgnoreSchema.optional(),

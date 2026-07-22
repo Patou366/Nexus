@@ -23,7 +23,6 @@ const wipedataConfirmHandler = {
         `xp:${guildId}:${userId}`,
         `cooldowns:${guildId}:${userId}`,
         `counter:${guildId}:${userId}`,
-        `birthday:${guildId}:${userId}`,
         `user:${guildId}:${userId}`,
         `leveling:${guildId}:${userId}`,
       ];

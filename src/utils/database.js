@@ -258,7 +258,6 @@ export function unwrapReplitData(data) {
 }
 
 export const getGuildConfigKey = (guildId) => `guild:${guildId}:config`;
-export const getGuildBirthdaysKey = (guildId) => `guild:${guildId}:birthdays`;
 
 /**
  * Get or initialize guild configuration
@@ -344,95 +343,7 @@ export const getColor = (path, fallback = "#000000") => {
     return typeof current === "string" ? current : fallback;
 };
 
-/**
- * Get all birthdays for a guild
- * @param {Object} client - Discord client with database
- * @param {string} guildId - Guild ID
- * @returns {Promise<Object>} Object mapping user IDs to birthday data
- */
-export async function getGuildBirthdays(client, guildId) {
-    const key = getGuildBirthdaysKey(guildId);
-    try {
-        if (!client.db || typeof client.db.get !== "function") {
-            logger.error("Database client is not available for getGuildBirthdays.");
-            return {};
-        }
 
-        const rawData = await client.db.get(key, {});
-        return unwrapReplitData(rawData) || {};
-    } catch (error) {
-        logger.error(`Error retrieving birthdays for guild ${guildId}:`, error);
-        return {};
-    }
-}
-
-/**
- * Set a user's birthday
- * @param {Object} client - Discord client with database
- * @param {string} guildId - Guild ID
- * @param {string} userId - User ID
- * @param {number} month - Month (1-12)
- * @param {number} day - Day (1-31)
- * @returns {Promise<boolean>} Success status
- */
-export async function setBirthday(client, guildId, userId, month, day) {
-    try {
-        if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for setBirthday.");
-            return false;
-        }
-
-        const key = getGuildBirthdaysKey(guildId);
-        const birthdays = await getGuildBirthdays(client, guildId);
-        birthdays[userId] = { month, day };
-        await client.db.set(key, birthdays);
-        return true;
-    } catch (error) {
-        logger.error(`Error setting birthday for user ${userId} in guild ${guildId}:`, error);
-        return false;
-    }
-}
-
-/**
- * Delete a user's birthday
- * @param {Object} client - Discord client with database
- * @param {string} guildId - Guild ID
- * @param {string} userId - User ID
- * @returns {Promise<boolean>} Success status
- */
-export async function deleteBirthday(client, guildId, userId) {
-    try {
-        if (!client.db || typeof client.db.set !== "function") {
-            logger.error("Database client is not available for deleteBirthday.");
-            return false;
-        }
-
-        const key = getGuildBirthdaysKey(guildId);
-        const birthdays = await getGuildBirthdays(client, guildId);
-        if (birthdays[userId]) {
-            delete birthdays[userId];
-            await client.db.set(key, birthdays);
-        }
-        return true;
-    } catch (error) {
-        logger.error(`Error deleting birthday for user ${userId} in guild ${guildId}:`, error);
-        return false;
-    }
-}
-
-
-
-
-
-
-export function getMonthName(monthNum) {
-    const months = [
-        'January', 'February', 'March', 'April', 'May', 'June',
-        'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-    const index = Math.max(0, Math.min(monthNum - 1, 11));
-    return monthNum >= 1 && monthNum <= 12 ? months[index] : 'Invalid Month';
-}
 
 
 /**
