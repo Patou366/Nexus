@@ -20,6 +20,7 @@ import {
 } from 'discord.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { existsSync } from 'fs';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1250,11 +1251,12 @@ async function handlePostRulesEmbed(selectInteraction, rootInteraction, guild) {
         }
 
         const perms = channel.permissionsFor(guild.members.me);
-        if (!perms?.has([PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+        const neededPerms = [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles];
+        if (!perms?.has(neededPerms)) {
             await chanInter.followUp({
                 embeds: [errorEmbed(
                     'Missing Permissions',
-                    `I need **Send Messages** and **Embed Links** permissions in ${channel} to post there.`,
+                    `I need **Send Messages**, **Embed Links**, and **Attach Files** permissions in ${channel} to post there.`,
                 )],
                 flags: MessageFlags.Ephemeral,
             });
@@ -1279,14 +1281,27 @@ async function handlePostRulesEmbed(selectInteraction, rootInteraction, guild) {
                 .setStyle(ButtonStyle.Primary),
         );
 
-        const rulesBanner = new AttachmentBuilder(RULES_BANNER_PATH, { name: 'rules-banner.webp' });
-        await channel.send({ files: [rulesBanner] });
-        await channel.send({ embeds: [rulesEmbed], components: [btnRow] });
+        try {
+            if (existsSync(RULES_BANNER_PATH)) {
+                const rulesBanner = new AttachmentBuilder(RULES_BANNER_PATH, { name: 'rules-banner.webp' });
+                await channel.send({ files: [rulesBanner] });
+            } else {
+                logger.warn('Rules banner image not found at path:', RULES_BANNER_PATH);
+            }
 
-        await chanInter.followUp({
-            embeds: [successEmbed('✅ Rules Embed Sent', `The rules embed has been posted to ${channel}.`)],
-            flags: MessageFlags.Ephemeral,
-        });
+            await channel.send({ embeds: [rulesEmbed], components: [btnRow] });
+
+            await chanInter.followUp({
+                embeds: [successEmbed('✅ Rules Embed Sent', `The rules embed has been posted to ${channel}.`)],
+                flags: MessageFlags.Ephemeral,
+            });
+        } catch (err) {
+            logger.error('Failed to post rules embed:', err);
+            await chanInter.followUp({
+                embeds: [errorEmbed('Send Failed', `Something went wrong while posting to ${channel}: ${err.message}`)],
+                flags: MessageFlags.Ephemeral,
+            }).catch(() => {});
+        }
     });
 }
 
