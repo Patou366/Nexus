@@ -9,7 +9,6 @@ import { handleScamDetection } from '../services/scamDetectionService.js';
 import { getTicketData } from '../utils/database.js';
 import { AiModerationService } from '../services/aiModerationService.js';
 import { getAfk, clearAfk } from '../services/afkService.js';
-import { handleAutomodSwear } from '../services/automodSwearService.js';
 import { handleAutoSlowmode } from '../services/autoSlowmodeService.js';
 import { handleJuliannaMention } from '../services/juliannaService.js';
 import { handleChaosTriggers } from '../services/chaosTriggerService.js';
@@ -75,9 +74,6 @@ export default {
 
       // Reply-based personality services — silent in ticket channels
       if (!isTicketChannel) {
-        await handleAutomodSwear(message).catch(err =>
-          logger.debug('Error in automod swear handling:', err)
-        );
         await handleJuliannaMention(message).catch(err =>
           logger.debug('Error in Julianna mention handler:', err)
         );
