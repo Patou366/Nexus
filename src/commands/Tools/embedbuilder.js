@@ -14,9 +14,16 @@ import {
     ComponentType,
     ChannelType,
     EmbedBuilder,
+    AttachmentBuilder,
     LabelBuilder,
     RadioGroupBuilder,
 } from 'discord.js';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const RULES_BANNER_PATH = path.join(__dirname, '../../../attached_assets/RULES-13-05-2025.png_1784734455234.webp');
 import { db } from '../../utils/database.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { successEmbed, errorEmbed } from '../../utils/embeds.js';
@@ -1272,6 +1279,8 @@ async function handlePostRulesEmbed(selectInteraction, rootInteraction, guild) {
                 .setStyle(ButtonStyle.Primary),
         );
 
+        const rulesBanner = new AttachmentBuilder(RULES_BANNER_PATH, { name: 'rules-banner.webp' });
+        await channel.send({ files: [rulesBanner] });
         await channel.send({ embeds: [rulesEmbed], components: [btnRow] });
 
         await chanInter.followUp({
