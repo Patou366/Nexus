@@ -215,6 +215,11 @@ function buildMainMenu(state) {
             .setValue('manage_buttons')
             .setEmoji('🔘'),
         new StringSelectMenuOptionBuilder()
+            .setLabel('Post Rules Embed')
+            .setDescription('Post the bilingual server rules with English / Español buttons')
+            .setValue('post_rules_embed')
+            .setEmoji('📜'),
+        new StringSelectMenuOptionBuilder()
             .setLabel('Post Embed')
             .setDescription('Send the finished embed to a channel')
             .setValue('post_embed')
@@ -1195,6 +1200,87 @@ async function handleManageButtons(selectInteraction, rootInteraction, state) {
     });
 }
 
+async function handlePostRulesEmbed(selectInteraction, rootInteraction, guild) {
+    await selectInteraction.deferUpdate().catch(() => {});
+
+    const chanSelect = new ChannelSelectMenuBuilder()
+        .setCustomId('eb_rules_channel')
+        .setPlaceholder('Select a channel...')
+        .addChannelTypes(ChannelType.GuildText, ChannelType.GuildAnnouncement);
+
+    await selectInteraction.followUp({
+        embeds: [
+            new EmbedBuilder()
+                .setTitle('📜 Post Rules Embed')
+                .setDescription(
+                    'Select the channel where the bilingual rules embed will be sent.\n' +
+                    'It will include **English** and **Español** buttons that show the rules privately.',
+                )
+                .setColor(getColor('info')),
+        ],
+        components: [new ActionRowBuilder().addComponents(chanSelect)],
+        flags: MessageFlags.Ephemeral,
+    });
+
+    const chanCollector = rootInteraction.channel.createMessageComponentCollector({
+        componentType: ComponentType.ChannelSelect,
+        filter: i =>
+            i.user.id === selectInteraction.user.id && i.customId === 'eb_rules_channel',
+        time: 60_000,
+        max: 1,
+    });
+
+    chanCollector.on('collect', async chanInter => {
+        await chanInter.deferUpdate();
+        const channel = chanInter.channels.first();
+
+        if (!channel) {
+            await chanInter.followUp({
+                embeds: [errorEmbed('No Channel', 'Could not resolve the selected channel.')],
+                flags: MessageFlags.Ephemeral,
+            });
+            return;
+        }
+
+        const perms = channel.permissionsFor(guild.members.me);
+        if (!perms?.has([PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+            await chanInter.followUp({
+                embeds: [errorEmbed(
+                    'Missing Permissions',
+                    `I need **Send Messages** and **Embed Links** permissions in ${channel} to post there.`,
+                )],
+                flags: MessageFlags.Ephemeral,
+            });
+            return;
+        }
+
+        const rulesEmbed = new EmbedBuilder()
+            .setColor(getColor('primary'))
+            .setDescription(
+                'Press on the button **English** to see the rules in English and the button **Español** to see the rules in Spanish.\n' +
+                'Pulsa el botón **English** para ver las reglas en inglés y el botón **Español** para ver las reglas en español.',
+            );
+
+        const btnRow = new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('eb_rules:en')
+                .setLabel('English')
+                .setStyle(ButtonStyle.Primary),
+            new ButtonBuilder()
+                .setCustomId('eb_rules:es')
+                .setLabel('Español')
+                .setStyle(ButtonStyle.Primary),
+        );
+
+        await channel.send({ embeds: [rulesEmbed], components: [btnRow] });
+
+        await chanInter.followUp({
+            embeds: [successEmbed('✅ Rules Embed Sent', `The rules embed has been posted to ${channel}.`)],
+            flags: MessageFlags.Ephemeral,
+        });
+    });
+}
+
 async function handleJsonExport(selectInteraction, rootInteraction, state) {
     await selectInteraction.deferUpdate();
 
@@ -1307,6 +1393,9 @@ export default {
                             break;
                         case 'manage_buttons':
                             await handleManageButtons(ci, interaction, state);
+                            break;
+                        case 'post_rules_embed':
+                            await handlePostRulesEmbed(ci, interaction, guild);
                             break;
                         case 'post_embed':
                             await handlePostEmbed(ci, interaction, state, guild);
