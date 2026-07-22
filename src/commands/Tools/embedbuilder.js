@@ -995,64 +995,72 @@ async function handlePostEmbed(selectInteraction, rootInteraction, state, guild)
     });
 
     chanCollector.on('collect', async chanInter => {
-        await chanInter.deferUpdate();
-        const channel = chanInter.channels.first();
+        try {
+            await chanInter.deferUpdate();
+            const channel = chanInter.channels.first();
 
-        if (!channel) {
+            if (!channel) {
+                await chanInter.followUp({
+                    embeds: [errorEmbed('No Channel', 'Could not resolve the selected channel.')],
+                    flags: MessageFlags.Ephemeral,
+                });
+                return;
+            }
+
+            const perms = channel.permissionsFor(guild.members.me);
+            if (!perms?.has([PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+                await chanInter.followUp({
+                    embeds: [
+                        errorEmbed(
+                            'Missing Permissions',
+                            `I need **Send Messages** and **Embed Links** permissions in ${channel} to post there.`,
+                        ),
+                    ],
+                    flags: MessageFlags.Ephemeral,
+                });
+                return;
+            }
+
+            const finalEmbed = buildPreviewEmbed(state);
+
+            // Remove the placeholder description before sending
+            if (finalEmbed.data.description === '*(Empty — use the menu below to add content)*') {
+                finalEmbed.setDescription(null);
+            }
+
+            // Build button components if configured
+            const messagePayload = { embeds: [finalEmbed] };
+            if (state.buttons.length > 0) {
+                const uniqueKey = `${Date.now()}`;
+                const guildId = rootInteraction.guildId;
+
+                // Persist button config so clicks can look up the message text
+                await db.set(`guild:${guildId}:embedbutton:${uniqueKey}`, {
+                    buttons: state.buttons,
+                });
+
+                const btnComponents = state.buttons.map((btn, idx) =>
+                    new ButtonBuilder()
+                        .setCustomId(`eb_btn:${guildId}:${uniqueKey}:${idx}`)
+                        .setLabel(btn.label)
+                        .setStyle(ButtonStyle.Primary),
+                );
+                messagePayload.components = [new ActionRowBuilder().addComponents(...btnComponents)];
+            }
+
+            await channel.send(messagePayload);
+
             await chanInter.followUp({
-                embeds: [errorEmbed('No Channel', 'Could not resolve the selected channel.')],
+                embeds: [successEmbed('✅ Embed Sent', `Your embed has been posted to ${channel}.`)],
                 flags: MessageFlags.Ephemeral,
             });
-            return;
-        }
-
-        const perms = channel.permissionsFor(guild.members.me);
-        if (!perms?.has([PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks])) {
+        } catch (err) {
+            logger.error('Failed to post embed to channel:', err);
             await chanInter.followUp({
-                embeds: [
-                    errorEmbed(
-                        'Missing Permissions',
-                        `I need **Send Messages** and **Embed Links** permissions in ${channel} to post there.`,
-                    ),
-                ],
+                embeds: [errorEmbed('Send Failed', `Something went wrong while posting: ${err.message}`)],
                 flags: MessageFlags.Ephemeral,
-            });
-            return;
+            }).catch(() => {});
         }
-
-        const finalEmbed = buildPreviewEmbed(state);
-
-        // Remove the placeholder description before sending
-        if (finalEmbed.data.description === '*(Empty — use the menu below to add content)*') {
-            finalEmbed.setDescription(null);
-        }
-
-        // Build button components if configured
-        const messagePayload = { embeds: [finalEmbed] };
-        if (state.buttons.length > 0) {
-            const uniqueKey = `${Date.now()}`;
-            const guildId = rootInteraction.guildId;
-
-            // Persist button config so clicks can look up the message text
-            await db.set(`guild:${guildId}:embedbutton:${uniqueKey}`, {
-                buttons: state.buttons,
-            });
-
-            const btnComponents = state.buttons.map((btn, idx) =>
-                new ButtonBuilder()
-                    .setCustomId(`eb_btn:${guildId}:${uniqueKey}:${idx}`)
-                    .setLabel(btn.label)
-                    .setStyle(ButtonStyle.Primary),
-            );
-            messagePayload.components = [new ActionRowBuilder().addComponents(...btnComponents)];
-        }
-
-        await channel.send(messagePayload);
-
-        await chanInter.followUp({
-            embeds: [successEmbed('✅ Embed Sent', `Your embed has been posted to ${channel}.`)],
-            flags: MessageFlags.Ephemeral,
-        });
     });
 }
 
@@ -1218,52 +1226,56 @@ async function handlePostRulesEmbed(selectInteraction, rootInteraction, guild) {
     });
 
     chanCollector.on('collect', async chanInter => {
-        await chanInter.deferUpdate();
-        const channel = chanInter.channels.first();
+        try {
+            await chanInter.deferUpdate();
+            const channel = chanInter.channels.first();
 
-        if (!channel) {
-            await chanInter.followUp({
-                embeds: [errorEmbed('No Channel', 'Could not resolve the selected channel.')],
-                flags: MessageFlags.Ephemeral,
-            });
-            return;
-        }
+            if (!channel) {
+                await chanInter.followUp({
+                    embeds: [errorEmbed('No Channel', 'Could not resolve the selected channel.')],
+                    flags: MessageFlags.Ephemeral,
+                });
+                return;
+            }
 
-        const perms = channel.permissionsFor(guild.members.me);
-        const neededPerms = [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles];
-        if (!perms?.has(neededPerms)) {
-            await chanInter.followUp({
-                embeds: [errorEmbed(
-                    'Missing Permissions',
-                    `I need **Send Messages**, **Embed Links**, and **Attach Files** permissions in ${channel} to post there.`,
-                )],
-                flags: MessageFlags.Ephemeral,
-            });
-            return;
-        }
+            const perms = channel.permissionsFor(guild.members.me);
+            const neededPerms = [PermissionFlagsBits.SendMessages, PermissionFlagsBits.EmbedLinks, PermissionFlagsBits.AttachFiles];
+            if (!perms?.has(neededPerms)) {
+                await chanInter.followUp({
+                    embeds: [errorEmbed(
+                        'Missing Permissions',
+                        `I need **Send Messages**, **Embed Links**, and **Attach Files** permissions in ${channel} to post there.`,
+                    )],
+                    flags: MessageFlags.Ephemeral,
+                });
+                return;
+            }
 
-        const rulesEmbed = new EmbedBuilder()
-            .setColor(getColor('primary'))
-            .setDescription(
-                'Press on the button **English** to see the rules in English and the button **Español** to see the rules in Spanish.\n' +
-                'Pulsa el botón **English** para ver las reglas en inglés y el botón **Español** para ver las reglas en español.',
+            const rulesEmbed = new EmbedBuilder()
+                .setColor(getColor('primary'))
+                .setDescription(
+                    'Press on the button **English** to see the rules in English and the button **Español** to see the rules in Spanish.\n' +
+                    'Pulsa el botón **English** para ver las reglas en inglés y el botón **Español** para ver las reglas en español.',
+                );
+
+            const btnRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder()
+                    .setCustomId('eb_rules:en')
+                    .setLabel('English')
+                    .setStyle(ButtonStyle.Primary),
+                new ButtonBuilder()
+                    .setCustomId('eb_rules:es')
+                    .setLabel('Español')
+                    .setStyle(ButtonStyle.Primary),
             );
 
-        const btnRow = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('eb_rules:en')
-                .setLabel('English')
-                .setStyle(ButtonStyle.Primary),
-            new ButtonBuilder()
-                .setCustomId('eb_rules:es')
-                .setLabel('Español')
-                .setStyle(ButtonStyle.Primary),
-        );
-
-        try {
             if (existsSync(RULES_BANNER_PATH)) {
-                const rulesBanner = new AttachmentBuilder(RULES_BANNER_PATH, { name: 'rules-banner.webp' });
-                await channel.send({ files: [rulesBanner] });
+                try {
+                    const rulesBanner = new AttachmentBuilder(RULES_BANNER_PATH, { name: 'rules-banner.webp' });
+                    await channel.send({ files: [rulesBanner] });
+                } catch (fileErr) {
+                    logger.warn('Failed to attach rules banner, sending embed without it:', fileErr.message);
+                }
             } else {
                 logger.warn('Rules banner image not found at path:', RULES_BANNER_PATH);
             }
