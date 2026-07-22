@@ -115,8 +115,6 @@ async function handleLeveling(message, client) {
       }
     }
 
-    if (levelingConfig.blacklistedUsers?.includes(message.author.id)) return;
-
     if (!message.content || message.content.trim().length === 0) return;
 
     const userData = await getUserLevelData(client, message.guild.id, message.author.id);

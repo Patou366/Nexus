@@ -17,6 +17,7 @@ import {
     LabelBuilder,
     RadioGroupBuilder,
 } from 'discord.js';
+import { db } from '../../utils/database.js';
 import { InteractionHelper } from '../../utils/interactionHelper.js';
 import { successEmbed, errorEmbed } from '../../utils/embeds.js';
 import { logger } from '../../utils/logger.js';
@@ -113,6 +114,9 @@ function buildDashboardEmbed(state) {
     const trunc = (str, n) =>
         str.length > n ? str.substring(0, n) + '…' : str;
 
+    const btn1 = state.buttons[0];
+    const btn2 = state.buttons[1];
+
     const lines = [
         `**Title** › ${state.title ? `\`${trunc(state.title, 40)}\`` : '`Not set`'}`,
         `**Description** › ${state.description ? `${state.description.length} character(s)` : '`Not set`'}`,
@@ -123,6 +127,8 @@ function buildDashboardEmbed(state) {
         `**Image** › ${state.image ? '✅ Set' : '`Not set`'}`,
         `**Timestamp** › ${state.timestamp ? '✅ Enabled' : '`Disabled`'}`,
         `**Fields** › ${state.fields.length} / ${MAX_FIELDS}`,
+        `**Button 1** › ${btn1 ? `\`${trunc(btn1.label, 30)}\`` : '`Not set`'}`,
+        `**Button 2** › ${btn2 ? `\`${trunc(btn2.label, 30)}\`` : '`Not set`'}`,
     ];
 
     return new EmbedBuilder()
@@ -203,6 +209,11 @@ function buildMainMenu(state) {
             .setDescription('Toggle the automatic timestamp in the footer')
             .setValue('toggle_timestamp')
             .setEmoji('🕐'),
+        new StringSelectMenuOptionBuilder()
+            .setLabel('Manage Buttons')
+            .setDescription('Add up to 2 buttons that send a private message when clicked')
+            .setValue('manage_buttons')
+            .setEmoji('🔘'),
         new StringSelectMenuOptionBuilder()
             .setLabel('Post Embed')
             .setDescription('Send the finished embed to a channel')
@@ -1024,12 +1035,163 @@ async function handlePostEmbed(selectInteraction, rootInteraction, state, guild)
             finalEmbed.setDescription(null);
         }
 
-        await channel.send({ embeds: [finalEmbed] });
+        // Build button components if configured
+        const messagePayload = { embeds: [finalEmbed] };
+        if (state.buttons.length > 0) {
+            const uniqueKey = `${Date.now()}`;
+            const guildId = rootInteraction.guildId;
+
+            // Persist button config so clicks can look up the message text
+            await db.set(`guild:${guildId}:embedbutton:${uniqueKey}`, {
+                buttons: state.buttons,
+            });
+
+            const btnComponents = state.buttons.map((btn, idx) =>
+                new ButtonBuilder()
+                    .setCustomId(`eb_btn:${guildId}:${uniqueKey}:${idx}`)
+                    .setLabel(btn.label)
+                    .setStyle(ButtonStyle.Primary),
+            );
+            messagePayload.components = [new ActionRowBuilder().addComponents(...btnComponents)];
+        }
+
+        await channel.send(messagePayload);
 
         await chanInter.followUp({
             embeds: [successEmbed('✅ Embed Sent', `Your embed has been posted to ${channel}.`)],
             flags: MessageFlags.Ephemeral,
         });
+    });
+}
+
+async function handleManageButtons(selectInteraction, rootInteraction, state) {
+    await selectInteraction.deferUpdate().catch(() => {});
+
+    const btn1 = state.buttons[0];
+    const btn2 = state.buttons[1];
+
+    const manageSelect = new StringSelectMenuBuilder()
+        .setCustomId('eb_btn_manage')
+        .setPlaceholder('Choose an action...')
+        .addOptions(
+            new StringSelectMenuOptionBuilder()
+                .setLabel(btn1 ? `Edit Button 1 — "${btn1.label.substring(0, 30)}"` : 'Set Button 1')
+                .setDescription('Set the label and private message for button 1')
+                .setValue('set_btn_0')
+                .setEmoji('1️⃣'),
+            new StringSelectMenuOptionBuilder()
+                .setLabel(btn2 ? `Edit Button 2 — "${btn2.label.substring(0, 30)}"` : 'Set Button 2')
+                .setDescription('Set the label and private message for button 2')
+                .setValue('set_btn_1')
+                .setEmoji('2️⃣'),
+        );
+
+    if (btn1) {
+        manageSelect.addOptions(
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Remove Button 1')
+                .setDescription('Delete button 1 from the embed')
+                .setValue('remove_btn_0')
+                .setEmoji('🗑️'),
+        );
+    }
+    if (btn2) {
+        manageSelect.addOptions(
+            new StringSelectMenuOptionBuilder()
+                .setLabel('Remove Button 2')
+                .setDescription('Delete button 2 from the embed')
+                .setValue('remove_btn_1')
+                .setEmoji('🗑️'),
+        );
+    }
+
+    await selectInteraction.followUp({
+        embeds: [
+            new EmbedBuilder()
+                .setTitle('🔘 Manage Buttons')
+                .setDescription(
+                    'You can add up to **2 buttons** to your embed.\n' +
+                    'When a user clicks a button, only they will see the private message you set.\n\n' +
+                    `**Button 1** › ${btn1 ? `\`${btn1.label}\`` : '`Not set`'}\n` +
+                    `**Button 2** › ${btn2 ? `\`${btn2.label}\`` : '`Not set`'}`,
+                )
+                .setColor(getColor('info')),
+        ],
+        components: [new ActionRowBuilder().addComponents(manageSelect)],
+        flags: MessageFlags.Ephemeral,
+    });
+
+    const manageCollector = rootInteraction.channel.createMessageComponentCollector({
+        componentType: ComponentType.StringSelect,
+        filter: i =>
+            i.user.id === selectInteraction.user.id && i.customId === 'eb_btn_manage',
+        time: 60_000,
+        max: 1,
+    });
+
+    manageCollector.on('collect', async manageInter => {
+        const action = manageInter.values[0];
+
+        if (action === 'remove_btn_0') {
+            state.buttons.splice(0, 1);
+            await manageInter.deferUpdate();
+            await refreshDashboard(rootInteraction, state);
+            return;
+        }
+        if (action === 'remove_btn_1') {
+            state.buttons.splice(1, 1);
+            await manageInter.deferUpdate();
+            await refreshDashboard(rootInteraction, state);
+            return;
+        }
+
+        const btnIdx = action === 'set_btn_0' ? 0 : 1;
+        const existing = state.buttons[btnIdx];
+
+        const modal = new ModalBuilder()
+            .setCustomId('eb_btn_modal')
+            .setTitle(`Configure Button ${btnIdx + 1}`)
+            .addComponents(
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('btn_label')
+                        .setLabel('Button Label (shown on the button)')
+                        .setStyle(TextInputStyle.Short)
+                        .setValue(existing?.label || '')
+                        .setMaxLength(80)
+                        .setRequired(true)
+                        .setPlaceholder('Click me!'),
+                ),
+                new ActionRowBuilder().addComponents(
+                    new TextInputBuilder()
+                        .setCustomId('btn_message')
+                        .setLabel('Private message sent when button is clicked')
+                        .setStyle(TextInputStyle.Paragraph)
+                        .setValue(existing?.message || '')
+                        .setMaxLength(2000)
+                        .setRequired(true)
+                        .setPlaceholder('Here is some information just for you...'),
+                ),
+            );
+
+        await manageInter.showModal(modal);
+
+        const submitted = await manageInter
+            .awaitModalSubmit({
+                filter: i => i.customId === 'eb_btn_modal' && i.user.id === manageInter.user.id,
+                time: 120_000,
+            })
+            .catch(() => null);
+
+        if (!submitted) return;
+
+        const label   = submitted.fields.getTextInputValue('btn_label').trim();
+        const message = submitted.fields.getTextInputValue('btn_message').trim();
+
+        state.buttons[btnIdx] = { label, message };
+
+        await submitted.deferUpdate().catch(() => {});
+        await refreshDashboard(rootInteraction, state);
     });
 }
 
@@ -1096,6 +1258,7 @@ export default {
                 image:       null,
                 timestamp:   false,
                 fields:      [],
+                buttons:     [],
             };
 
             await refreshDashboard(interaction, state);
@@ -1142,6 +1305,9 @@ export default {
                             await ci.deferUpdate();
                             await refreshDashboard(interaction, state);
                             break;
+                        case 'manage_buttons':
+                            await handleManageButtons(ci, interaction, state);
+                            break;
                         case 'post_embed':
                             await handlePostEmbed(ci, interaction, state, guild);
                             break;
@@ -1158,6 +1324,7 @@ export default {
                             state.image       = null;
                             state.timestamp   = false;
                             state.fields      = [];
+                            state.buttons     = [];
                             await ci.deferUpdate();
                             await refreshDashboard(interaction, state);
                             break;

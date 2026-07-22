@@ -197,7 +197,6 @@ export async function getLevelingConfig(client, guildId) {
       levelUpChannel: null,
       ignoredChannels: [],
       ignoredRoles: [],
-      blacklistedUsers: [],
       roleRewards: {},
       announceLevelUp: true,
       xpMultiplier: 1
@@ -212,7 +211,6 @@ export async function getLevelingConfig(client, guildId) {
       levelUpChannel: null,
       ignoredChannels: [],
       ignoredRoles: [],
-      blacklistedUsers: [],
       roleRewards: {},
       announceLevelUp: true,
       xpMultiplier: 1
