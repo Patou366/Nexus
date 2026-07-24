@@ -2,10 +2,9 @@ import { getFromDb, setInDb } from '../utils/database.js';
 import { logger } from '../utils/logger.js';
 
 // ── Config ────────────────────────────────────────────────────────────────────
-const DB_KEY          = (guildId) => `guild:${guildId}:auto_slowmode`;
-const WINDOW_MS       = 5000;   // 5-second rolling window
-const COOLDOWN_MS     = 30000;  // 30s of calm before removing slowmode
-const IGNORED_PERMS   = ['Administrator', 'ManageMessages'];
+const DB_KEY      = (guildId) => `guild:${guildId}:auto_slowmode`;
+const WINDOW_MS   = 5000;   // 5-second rolling window
+const COOLDOWN_MS = 30000;  // 30s of calm before removing slowmode
 
 // ── Tier thresholds ───────────────────────────────────────────────────────────
 function getTier(count) {
@@ -14,13 +13,31 @@ function getTier(count) {
   return 0;
 }
 
-// ── In-memory state ───────────────────────────────────────────────────────────
-// channelId → { timestamps: number[], currentSlowmode: number, calmSince: number|null, timer: NodeJS.Timeout|null }
+// ── In-memory enabled cache (guild id → boolean) ──────────────────────────────
+// Avoids a DB round-trip on every single message. Populated lazily on first
+// message per guild after startup, then kept in sync by enable/disable calls.
+const enabledCache = new Map();
+
+async function isEnabledForGuild(guildId) {
+  if (enabledCache.has(guildId)) return enabledCache.get(guildId);
+  // Cold start: load from DB once and cache it.
+  try {
+    const config = await getFromDb(DB_KEY(guildId), null);
+    const enabled = config?.enabled === true;
+    enabledCache.set(guildId, enabled);
+    return enabled;
+  } catch {
+    return false;
+  }
+}
+
+// ── In-memory per-channel state ───────────────────────────────────────────────
+// channelId → { timestamps: number[], currentSlowmode: number, timer: NodeJS.Timeout|null }
 const state = new Map();
 
 function getChannelState(channelId) {
   if (!state.has(channelId)) {
-    state.set(channelId, { timestamps: [], currentSlowmode: 0, calmSince: null, timer: null });
+    state.set(channelId, { timestamps: [], currentSlowmode: 0, timer: null });
   }
   return state.get(channelId);
 }
@@ -35,35 +52,62 @@ async function applySlowmode(channel, seconds, reason) {
     await channel.setRateLimitPerUser(seconds, reason);
     logger.info(`[AutoSlowmode] Set slowmode to ${seconds}s in #${channel.name} (${channel.guild.name})`);
   } catch (err) {
-    logger.warn(`[AutoSlowmode] Failed to set slowmode in ${channel.id}:`, err.message);
+    logger.warn(`[AutoSlowmode] Failed to set slowmode in ${channel.id}: ${err.message}`);
   }
 }
 
-// ── Main handler ──────────────────────────────────────────────────────────────
+// ── Calm-down helper ──────────────────────────────────────────────────────────
+// Schedules (or reschedules) the 30-second cooldown timer for a channel.
+// If activity spikes again before the timer fires, the timer is cancelled by
+// the spike handler below.
+function scheduleCalmdown(ch, channel) {
+  if (ch.timer) return; // already counting down
+
+  ch.timer = setTimeout(async () => {
+    ch.timer = null;
+    const fresh = pruneWindow(ch.timestamps);
+    if (getTier(fresh.length) === 0) {
+      // Still calm — remove slowmode
+      ch.currentSlowmode = 0;
+      ch.timestamps      = fresh;
+      await applySlowmode(channel, 0, 'AutoSlowmode: activity normalized');
+      await channel.send({
+        content: '✅ **Slowmode removed** — activity has returned to normal.'
+      }).catch(() => null);
+    } else {
+      // Activity picked back up while we were waiting — restart the timer
+      scheduleCalmdown(ch, channel);
+    }
+  }, COOLDOWN_MS);
+}
+
+// ── Main per-message handler ──────────────────────────────────────────────────
 export async function handleAutoSlowmode(message) {
   if (message.author.bot) return;
   if (!message.guild)     return;
 
-  const { guild, channel, member } = message;
+  // Skip users with Administrator or ManageMessages
+  if (
+    message.member?.permissions?.has('Administrator') ||
+    message.member?.permissions?.has('ManageMessages')
+  ) return;
 
-  // Skip admins / moderators
-  if (member?.permissions?.has('Administrator') || member?.permissions?.has('ManageMessages')) return;
+  // Fast in-memory check — no DB call on the hot path
+  if (!(await isEnabledForGuild(message.guild.id))) return;
 
-  const config = await getAutoSlowmodeConfig(guild.id);
-  if (!config.enabled) return;
-
-  const ch = getChannelState(channel.id);
+  const { channel } = message;
+  const ch  = getChannelState(channel.id);
   const now = Date.now();
 
   ch.timestamps = pruneWindow(ch.timestamps);
   ch.timestamps.push(now);
 
-  const count = ch.timestamps.length;
-  const targetSlowmode = getTier(count);
+  const count           = ch.timestamps.length;
+  const targetSlowmode  = getTier(count);
 
-  // ── Spike detected — raise slowmode ──────────────────────────────────────
+  // ── Spike: raise (or escalate) slowmode ──────────────────────────────────
   if (targetSlowmode > ch.currentSlowmode) {
-    ch.calmSince = null;
+    // Cancel any pending calm-down timer — we're spiking again
     if (ch.timer) { clearTimeout(ch.timer); ch.timer = null; }
 
     ch.currentSlowmode = targetSlowmode;
@@ -76,28 +120,9 @@ export async function handleAutoSlowmode(message) {
     return;
   }
 
-  // ── Activity calming down — start cooldown timer ──────────────────────────
+  // ── Calm: activity dropped below the tier — start cooldown if needed ─────
   if (ch.currentSlowmode > 0 && targetSlowmode === 0) {
-    if (!ch.calmSince) {
-      ch.calmSince = now;
-    }
-
-    if (ch.timer) return; // timer already running
-
-    ch.timer = setTimeout(async () => {
-      const fresh = pruneWindow(ch.timestamps);
-      if (fresh.length < 5) {
-        ch.currentSlowmode = 0;
-        ch.calmSince       = null;
-        ch.timer           = null;
-        await applySlowmode(channel, 0, 'AutoSlowmode: activity normalized');
-        await channel.send({
-          content: `✅ **Slowmode removed** — activity has returned to normal.`
-        }).catch(() => null);
-      } else {
-        ch.timer = null;
-      }
-    }, COOLDOWN_MS);
+    scheduleCalmdown(ch, channel);
   }
 }
 
@@ -114,6 +139,7 @@ export async function getAutoSlowmodeConfig(guildId) {
 export async function enableAutoSlowmode(guildId) {
   try {
     await setInDb(DB_KEY(guildId), { enabled: true, updatedAt: Date.now() });
+    enabledCache.set(guildId, true);   // keep cache in sync immediately
     return true;
   } catch {
     return false;
@@ -123,6 +149,11 @@ export async function enableAutoSlowmode(guildId) {
 export async function disableAutoSlowmode(guildId) {
   try {
     await setInDb(DB_KEY(guildId), { enabled: false, updatedAt: Date.now() });
+    enabledCache.set(guildId, false);  // keep cache in sync immediately
+    // Clean up any active slowmodes for this guild — best-effort
+    state.forEach((ch, channelId) => {
+      if (ch.timer) { clearTimeout(ch.timer); ch.timer = null; }
+    });
     return true;
   } catch {
     return false;
