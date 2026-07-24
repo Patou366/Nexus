@@ -29,7 +29,7 @@ export function getXpForLevel(level) {
       'The level must be a valid number.'
     );
   }
-  return 5 * Math.pow(level, 2) + 50 * level + 50;
+  return Math.floor(BASE_XP * Math.pow(XP_MULTIPLIER, level));
 }
 
 
