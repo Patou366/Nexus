@@ -10,7 +10,6 @@ import { getTicketData } from '../utils/database.js';
 import { AiModerationService } from '../services/aiModerationService.js';
 import { getAfk, clearAfk } from '../services/afkService.js';
 import { handleAutoSlowmode } from '../services/autoSlowmodeService.js';
-import { handleJuliannaMention } from '../services/juliannaService.js';
 import { handleChaosTriggers } from '../services/chaosTriggerService.js';
 import { handleStickyNote } from '../services/stickyNoteService.js';
 
@@ -74,9 +73,6 @@ export default {
 
       // Reply-based personality services — silent in ticket channels
       if (!isTicketChannel) {
-        await handleJuliannaMention(message).catch(err =>
-          logger.debug('Error in Julianna mention handler:', err)
-        );
         await handleChaosTriggers(message).catch(err =>
           logger.debug('Error in chaos trigger handler:', err)
         );

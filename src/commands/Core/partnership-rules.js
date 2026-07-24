@@ -31,20 +31,20 @@ export default {
                         name: '⚙️ PARTNERSHIP RULES & PING TIERS',
                         value:
                             'Our ping policy depends entirely on your server\'s size:\n\n' +
-                            '🟢 **Tier 1 (2,000+ Members):** We will post your ad in <#1476744126228729976> and use our **Culés Ping** role to give your server maximum exposure.\n' +
-                            '🟡 **Tier 2 (1,200 – 1,999 Members):** We will gladly post your ad in <#1476744126228729976>, but it will be **without a ping**.',
+                            '🟢 **Tier 1 (2,000+ Members):** We will post your ad in our partnerships channel and ping our partnership role for maximum exposure.\n' +
+                            '🟡 **Tier 2 (1,200 – 1,999 Members):** We will gladly post your ad in our partnerships channel, but it will be **without a ping**.',
                         inline: false
                     },
                     {
                         name: '⚠️ NOTE REGARDING OLD PARTNERSHIPS',
                         value:
                             'For anyone saying, *"But there are past partners with less than 1,200 members,"* please note:\n' +
-                            'Those partnerships were approved during a period when the Owner was unable to access Discord, and staff members were approving partnerships without checking requirements. ' +
+                            'Those partnerships were approved during a period when requirements were not being enforced. ' +
                             'Those servers have either been terminated or are being grandfathered in. Moving forward, **no exceptions** will be made to the 1,200-member rule.',
                         inline: false
                     }
                 )
-                .setFooter({ text: 'Thank you for understanding! — The FC Barcelona Staff Team' });
+                .setFooter({ text: 'Thank you for understanding! — The Staff Team' });
 
             await interaction.reply({ embeds: [embed] });
         } catch (error) {

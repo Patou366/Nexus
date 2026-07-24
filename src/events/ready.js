@@ -7,7 +7,7 @@ const PRESENCE_INTERVAL_MS = 10 * 60 * 1000;
 const presences = [
   {
     status: "online",
-    activities: [{ name: "Casseurt is a bastard", type: 2 }],
+    activities: [{ name: "your server", type: 2 }],
   },
   {
     status: "online",
